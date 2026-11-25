@@ -21,9 +21,9 @@ whole stack runs locally with one command. An optional **AWS (Terraform) + Datab
 ---
 
 ## Contents
-[Business problem](#business-problem) · [Architecture](#architecture) · [Tech stack](#technology-stack) ·
+[Business problem](#business-problem) · [Architecture](#architecture) · [Dashboards](#dashboards) · [Tech stack](#technology-stack) ·
 [Data model](#data-model) · [Key engineering features](#key-engineering-features) · [Quick start](#quick-start) ·
-[Dashboards](#dashboards) · [Testing](#testing) · [Benchmarks](#benchmarks) · [Data quality](#data-quality) ·
+[Testing](#testing) · [Benchmarks](#benchmarks) · [Data quality](#data-quality) ·
 [Failure recovery](#reliability-and-failure-recovery) · [Security](#security) · [Cloud deployment](#cloud-deployment-optional) ·
 [Costs](#cost-considerations) · [Limitations](#known-limitations) · [Roadmap](#future-improvements) · [Repository](#repository-structure)
 
@@ -86,6 +86,30 @@ Detailed diagrams: [system architecture](architecture/system-architecture.md) ·
 | **Bronze** | 9 Kafka event tables (envelope + raw Avro bytes + JSON payload + Kafka coordinates) and 16 batch tables (source columns + checksum, file and batch metadata) | Append; per-micro-batch Delta transaction ids (exactly-once per offset) |
 | **Silver** | 23 tables: customers (+ SCD2 history), products, orders, items, payments, shipments, inventory movements and position, clickstream, sessions, refunds, returns, FX, reference data | MERGE; order-independent lifecycle folding; row-level validation → quarantine |
 | **Gold** | 10 dimensions, 8 facts, 13 marts, financial reconciliation, real-time per-minute aggregates | Incremental MERGE via watermarks; SCD1/SCD2; marts recomputed |
+
+## Dashboards
+
+Ten Streamlit pages query Gold live through the DuckDB serving layer, with no hard-coded numbers. They share
+global date, country, channel and category filters and offer CSV export, an auto-refresh toggle, and loading,
+empty and error states. The colour system is a CVD-validated categorical palette. Status colours are always paired
+with an icon and label.
+
+| | |
+|---|---|
+| ![Sales](dashboards/screenshots/02_sales_revenue.png) | ![Customers](dashboards/screenshots/03_customer_analytics.png) |
+| **Sales & Revenue**: channel trends, revenue map, categories, discount and refund impact | **Customer Analytics**: new vs returning, segments, cohort retention, RFM, CLV |
+| ![Funnel](dashboards/screenshots/06_conversion_funnel.png) | ![Inventory](dashboards/screenshots/07_inventory_management.png) |
+| **Conversion Funnel**: session funnel, device and source breakdowns, abandonment | **Inventory Management**: alerts, stock status, utilisation, turnover |
+| ![Payments](dashboards/screenshots/09_payments_refunds.png) | ![DQ](dashboards/screenshots/10_data_quality.png) |
+| **Payments & Refunds**: success rate, methods, failure reasons, reconciliation | **Data Quality & Pipeline Health**: score, failed rules, quarantine, freshness, watermarks |
+
+Also: Customer 360 ([screenshot](dashboards/screenshots/04_customer_360.png)), Product Performance
+([screenshot](dashboards/screenshots/05_product_performance.png)), Order Fulfillment
+([screenshot](dashboards/screenshots/08_order_fulfillment.png)). Grafana: [Kafka health](dashboards/screenshots/grafana_kafka_health.png),
+[data quality](dashboards/screenshots/grafana_data_quality.png).
+
+**Power BI:** [connection guide, semantic model and DAX measures](dashboards/powerbi/README.md). No `.pbix` is
+committed: a binary report cannot be reviewed, and building one requires Power BI Desktop.
 
 ## Technology stack
 
@@ -225,30 +249,6 @@ Host ports are configurable in `.env` (PostgreSQL uses **5433** to avoid clashin
 
 **Execution modes:** `PLATFORM_SCALE=lite` (default, laptop-friendly) or `full` (specification reference scale).
 The live producer speed is set by `GENERATOR_EVENTS_PER_SECOND`.
-
-## Dashboards
-
-Ten Streamlit pages query Gold live through the DuckDB serving layer, with no hard-coded numbers. They share
-global date, country, channel and category filters and offer CSV export, an auto-refresh toggle, and loading,
-empty and error states. The colour system is a CVD-validated categorical palette. Status colours are always paired
-with an icon and label.
-
-| | |
-|---|---|
-| ![Sales](dashboards/screenshots/02_sales_revenue.png) | ![Customers](dashboards/screenshots/03_customer_analytics.png) |
-| **Sales & Revenue**: channel trends, revenue map, categories, discount and refund impact | **Customer Analytics**: new vs returning, segments, cohort retention, RFM, CLV |
-| ![Funnel](dashboards/screenshots/06_conversion_funnel.png) | ![Inventory](dashboards/screenshots/07_inventory_management.png) |
-| **Conversion Funnel**: session funnel, device and source breakdowns, abandonment | **Inventory Management**: alerts, stock status, utilisation, turnover |
-| ![Payments](dashboards/screenshots/09_payments_refunds.png) | ![DQ](dashboards/screenshots/10_data_quality.png) |
-| **Payments & Refunds**: success rate, methods, failure reasons, reconciliation | **Data Quality & Pipeline Health**: score, failed rules, quarantine, freshness, watermarks |
-
-Also: Customer 360 ([screenshot](dashboards/screenshots/04_customer_360.png)), Product Performance
-([screenshot](dashboards/screenshots/05_product_performance.png)), Order Fulfillment
-([screenshot](dashboards/screenshots/08_order_fulfillment.png)). Grafana: [Kafka health](dashboards/screenshots/grafana_kafka_health.png),
-[data quality](dashboards/screenshots/grafana_data_quality.png).
-
-**Power BI:** [connection guide, semantic model and DAX measures](dashboards/powerbi/README.md). No `.pbix` is
-committed: a binary report cannot be reviewed, and building one requires Power BI Desktop.
 
 ## Testing
 
