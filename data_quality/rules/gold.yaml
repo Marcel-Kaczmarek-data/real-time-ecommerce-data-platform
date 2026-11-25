@@ -1,0 +1,29 @@
+# Gold checks: model integrity after each load (post-promotion verification).
+suite: gold
+owner: analytics-engineering
+checks:
+  - {name: fact_orders_grain_unique, table: gold.fact_orders, type: unique, columns: [order_id], severity: critical}
+  - {name: fact_order_items_grain_unique, table: gold.fact_order_items, type: unique, columns: [order_item_id],
+     severity: critical}
+  - {name: fact_orders_customer_sk_resolved, table: gold.fact_orders, type: expression, severity: warning,
+     expression: "customer_sk <> -1", max_failure_rate: 0.001}
+  - {name: fact_order_items_product_sk_resolved, table: gold.fact_order_items, type: expression, severity: warning,
+     expression: "product_sk <> -1", max_failure_rate: 0.001}
+  - {name: dim_customer_one_current_version, table: gold.dim_customer, type: sql, severity: critical,
+     sql: "SELECT count(*) AS failed FROM (SELECT customer_id FROM {gold.dim_customer} WHERE is_current
+           GROUP BY customer_id HAVING count(*) <> 1)"}
+  - {name: dim_customer_versions_do_not_overlap, table: gold.dim_customer, type: sql, severity: critical,
+     sql: "SELECT count(*) AS failed FROM (SELECT valid_to, LEAD(valid_from) OVER (PARTITION BY customer_id
+           ORDER BY valid_from) AS nxt FROM {gold.dim_customer}) WHERE nxt IS NOT NULL AND nxt <> valid_to"}
+  - {name: dim_product_one_current_version, table: gold.dim_product, type: sql, severity: critical,
+     sql: "SELECT count(*) AS failed FROM (SELECT product_id FROM {gold.dim_product} WHERE is_current
+           GROUP BY product_id HAVING count(*) <> 1)"}
+  - {name: revenue_reconciles_with_facts, table: gold.mart_daily_sales, type: sql, severity: critical,
+     sql: "SELECT CASE WHEN abs((SELECT sum(gross_revenue_usd) FROM {gold.mart_daily_sales})
+                               - (SELECT sum(gross_revenue_usd) FROM {gold.fact_orders})) > 1 THEN 1 ELSE 0 END AS failed"}
+  - {name: net_revenue_not_above_gross, table: gold.fact_orders, type: expression, severity: critical,
+     expression: "net_revenue_usd <= gross_revenue_usd + 0.01"}
+  - {name: customer_360_one_row_per_customer, table: gold.mart_customer_360, type: unique, columns: [customer_id],
+     severity: critical}
+  - {name: executive_summary_freshness, table: gold.mart_executive_summary, type: freshness, column: date,
+     max_age_hours: 48, severity: warning}

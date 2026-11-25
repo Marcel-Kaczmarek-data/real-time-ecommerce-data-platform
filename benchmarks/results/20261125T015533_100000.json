@@ -1,0 +1,76 @@
+{
+  "config": {
+    "events": 100000,
+    "partitions": [
+      12
+    ],
+    "cores": [
+      2,
+      4
+    ],
+    "live_seconds": 0,
+    "live_rate": 200.0,
+    "skip_gold": true,
+    "skip_optimize": true
+  },
+  "environment": {
+    "timestamp_utc": "2026-11-25T01:50:04+00:00",
+    "host_cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz",
+    "logical_cpus_visible": 16,
+    "memory_visible_gb": 15.5,
+    "os": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.36",
+    "python": "3.11.11",
+    "pyspark": "3.5.4",
+    "kafka": "Confluent Platform 7.8.0 (single broker, KRaft)",
+    "object_storage": "SeaweedFS 3.85 (single node)",
+    "note": "Docker Desktop VM on a Windows 11 host; all services on one machine"
+  },
+  "runs": [
+    {
+      "partitions": 12,
+      "produce": {
+        "events": 100000,
+        "acked": 99988,
+        "dead_lettered": 12,
+        "seconds": 97.98,
+        "publish_seconds": 10.61,
+        "events_per_second": 1020.6,
+        "payload_mb": 25.9,
+        "ack_latency_ms": {
+          "p50": 62706.4,
+          "p95": 91165.05,
+          "p99": 91824.93
+        }
+      },
+      "bronze": [
+        {
+          "cores": 2,
+          "rows": 99988,
+          "seconds": 127.77,
+          "rows_per_second": 782.6,
+          "bronze_mb": 23.5,
+          "cpu_avg_percent": 172.6,
+          "cpu_peak_percent": 618.5,
+          "rss_peak_mb": 3011.9,
+          "note": "includes ~10-15 s JVM/Spark start-up"
+        },
+        {
+          "cores": 4,
+          "rows": 99988,
+          "seconds": 98.32,
+          "rows_per_second": 1017.0,
+          "bronze_mb": 23.5,
+          "cpu_avg_percent": 229.4,
+          "cpu_peak_percent": 734.2,
+          "rss_peak_mb": 3607.8,
+          "note": "includes ~10-15 s JVM/Spark start-up"
+        }
+      ]
+    }
+  ],
+  "generator": {
+    "events": 100000,
+    "seconds": 1.87,
+    "events_per_second": 53524.2
+  }
+}

@@ -1,0 +1,172 @@
+{
+  "config": {
+    "events": 100000,
+    "partitions": [
+      3,
+      12
+    ],
+    "cores": [
+      2,
+      4
+    ],
+    "live_seconds": 90,
+    "live_rate": 200.0,
+    "skip_gold": false,
+    "skip_optimize": false
+  },
+  "environment": {
+    "timestamp_utc": "2026-11-25T01:36:18+00:00",
+    "host_cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz",
+    "logical_cpus_visible": 16,
+    "memory_visible_gb": 15.5,
+    "os": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.36",
+    "python": "3.11.11",
+    "pyspark": "3.5.4",
+    "kafka": "Confluent Platform 7.8.0 (single broker, KRaft)",
+    "object_storage": "SeaweedFS 3.85 (single node)",
+    "note": "Docker Desktop VM on a Windows 11 host; all services on one machine"
+  },
+  "runs": [
+    {
+      "partitions": 3,
+      "produce": {
+        "events": 100000,
+        "acked": 99988,
+        "dead_lettered": 12,
+        "seconds": 17.87,
+        "publish_seconds": 10.58,
+        "events_per_second": 5597.0,
+        "payload_mb": 25.9,
+        "ack_latency_ms": {
+          "p50": 9433.25,
+          "p95": 16392.82,
+          "p99": 17008.98
+        }
+      },
+      "bronze": [
+        {
+          "cores": 2,
+          "rows": 99988,
+          "seconds": 59.62,
+          "rows_per_second": 1677.2,
+          "bronze_mb": 23.9,
+          "cpu_avg_percent": 280.6,
+          "cpu_peak_percent": 625.0,
+          "rss_peak_mb": 2595.9,
+          "note": "includes ~10-15 s JVM/Spark start-up"
+        },
+        {
+          "cores": 4,
+          "rows": 99988,
+          "seconds": 63.66,
+          "rows_per_second": 1570.8,
+          "bronze_mb": 23.9,
+          "cpu_avg_percent": 315.2,
+          "cpu_peak_percent": 853.4,
+          "rss_peak_mb": 3414.9,
+          "note": "includes ~10-15 s JVM/Spark start-up"
+        }
+      ]
+    },
+    {
+      "partitions": 12,
+      "produce": {
+        "events": 100000,
+        "acked": 13758,
+        "dead_lettered": 86242,
+        "seconds": 234.27,
+        "publish_seconds": 10.45,
+        "events_per_second": 426.9,
+        "payload_mb": 25.9,
+        "ack_latency_ms": {
+          "p50": 39026.07,
+          "p95": 127172.09,
+          "p99": 127559.2
+        }
+      },
+      "bronze": [
+        {
+          "cores": 2,
+          "rows": 14383,
+          "seconds": 114.86,
+          "rows_per_second": 125.2,
+          "bronze_mb": 3.4,
+          "cpu_avg_percent": 151.6,
+          "cpu_peak_percent": 653.1,
+          "rss_peak_mb": 2750.4,
+          "note": "includes ~10-15 s JVM/Spark start-up"
+        },
+        {
+          "cores": 4,
+          "rows": 14383,
+          "seconds": 83.74,
+          "rows_per_second": 171.8,
+          "bronze_mb": 3.4,
+          "cpu_avg_percent": 223.1,
+          "cpu_peak_percent": 1051.8,
+          "rss_peak_mb": 3112.2,
+          "note": "includes ~10-15 s JVM/Spark start-up"
+        }
+      ]
+    }
+  ],
+  "generator": {
+    "events": 100000,
+    "seconds": 1.89,
+    "events_per_second": 52865.0
+  },
+  "optimize": {
+    "table": "bronze.clickstream_events",
+    "before": {
+      "files": 3,
+      "query_ms_median": 2.5
+    },
+    "after": {
+      "files": 1,
+      "query_ms_median": 2.1
+    },
+    "optimize_seconds": 21.9,
+    "query": "SELECT event_type, count(*) FROM t WHERE kafka_partition = 1 AND event_type = 'add_to_cart' GROUP BY 1"
+  },
+  "live": {
+    "rate_events_per_second": 200.0,
+    "duration_seconds": 90,
+    "produced": 18000,
+    "rows_in_bronze": 16894,
+    "trigger_seconds": 10,
+    "end_to_end_latency_s": {
+      "p50": 14.53,
+      "p95": 29.94,
+      "p99": 31.93,
+      "max": 32.77
+    },
+    "producer_ack_latency_ms": {
+      "p50": 25.19,
+      "p95": 5327.68,
+      "p99": 17210.87
+    },
+    "definition": "Kafka append time -> Bronze Delta commit (includes the 10 s micro-batch trigger)"
+  },
+  "gold": {
+    "executive_kpis_30d": {
+      "median_ms": 20.4,
+      "p95_ms": 21.1
+    },
+    "revenue_by_country": {
+      "median_ms": 17.4,
+      "p95_ms": 17.8
+    },
+    "top_products_from_fact": {
+      "median_ms": 20.2,
+      "p95_ms": 24.5
+    },
+    "customer_360_lookup": {
+      "median_ms": 26.0,
+      "p95_ms": 27.9
+    },
+    "orders_fact_full_scan": {
+      "median_ms": 25.5,
+      "p95_ms": 29.1
+    }
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "type": "record",
+  "name": "PaymentsEvent",
+  "namespace": "com.ecommerce.events",
+  "doc": "Standard event envelope carrying a payments payload. Allowed event_type values: payment_authorized, payment_captured, payment_failed",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Globally unique event id (UUID)"
+    },
+    {
+      "name": "event_type",
+      "type": "string",
+      "doc": "Business event name"
+    },
+    {
+      "name": "event_version",
+      "type": "int",
+      "doc": "Payload contract version"
+    },
+    {
+      "name": "event_timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Business event time (UTC)"
+    },
+    {
+      "name": "source_system",
+      "type": "string",
+      "doc": "Emitting system"
+    },
+    {
+      "name": "correlation_id",
+      "type": "string",
+      "doc": "Journey / order correlation id"
+    },
+    {
+      "name": "payload",
+      "type": {
+        "type": "record",
+        "name": "PaymentsPayload",
+        "fields": [
+          {
+            "name": "payment_id",
+            "doc": "Business key (one per attempt)",
+            "type": "string"
+          },
+          {
+            "name": "order_id",
+            "doc": "FK orders",
+            "type": "string"
+          },
+          {
+            "name": "payment_method",
+            "doc": "credit_card | debit_card | paypal | ...",
+            "type": "string"
+          },
+          {
+            "name": "payment_status",
+            "doc": "authorized | captured | failed",
+            "type": "string"
+          },
+          {
+            "name": "payment_amount",
+            "doc": "Amount in order currency",
+            "type": "double"
+          },
+          {
+            "name": "currency",
+            "doc": "ISO 4217",
+            "type": "string"
+          },
+          {
+            "name": "payment_timestamp",
+            "doc": "UTC",
+            "type": {
+              "type": "long",
+              "logicalType": "timestamp-millis"
+            }
+          },
+          {
+            "name": "attempt_number",
+            "doc": "1 = first attempt",
+            "type": "int"
+          },
+          {
+            "name": "failure_reason",
+            "doc": "Gateway decline reason",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "provider",
+            "doc": "Payment service provider",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}

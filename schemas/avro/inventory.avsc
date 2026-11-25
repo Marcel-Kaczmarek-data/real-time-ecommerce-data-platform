@@ -1,0 +1,108 @@
+{
+  "type": "record",
+  "name": "InventoryEvent",
+  "namespace": "com.ecommerce.events",
+  "doc": "Standard event envelope carrying a inventory payload. Allowed event_type values: inventory_reserved, inventory_released, inventory_shipped, inventory_replenished, inventory_adjusted",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Globally unique event id (UUID)"
+    },
+    {
+      "name": "event_type",
+      "type": "string",
+      "doc": "Business event name"
+    },
+    {
+      "name": "event_version",
+      "type": "int",
+      "doc": "Payload contract version"
+    },
+    {
+      "name": "event_timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Business event time (UTC)"
+    },
+    {
+      "name": "source_system",
+      "type": "string",
+      "doc": "Emitting system"
+    },
+    {
+      "name": "correlation_id",
+      "type": "string",
+      "doc": "Journey / order correlation id"
+    },
+    {
+      "name": "payload",
+      "type": {
+        "type": "record",
+        "name": "InventoryPayload",
+        "fields": [
+          {
+            "name": "movement_id",
+            "doc": "Business key",
+            "type": "string"
+          },
+          {
+            "name": "warehouse_id",
+            "doc": "FK warehouses",
+            "type": "string"
+          },
+          {
+            "name": "product_id",
+            "doc": "FK products",
+            "type": "string"
+          },
+          {
+            "name": "movement_type",
+            "doc": "reserve | release | ship | replenish | return_restock | adjust",
+            "type": "string"
+          },
+          {
+            "name": "quantity_delta_available",
+            "doc": "Change of available units",
+            "type": "int"
+          },
+          {
+            "name": "quantity_delta_reserved",
+            "doc": "Change of reserved units",
+            "type": "int"
+          },
+          {
+            "name": "available_quantity",
+            "doc": "Available units after the movement (informational)",
+            "type": "int"
+          },
+          {
+            "name": "reserved_quantity",
+            "doc": "Reserved units after the movement (informational)",
+            "type": "int"
+          },
+          {
+            "name": "reorder_threshold",
+            "doc": "Reorder point",
+            "type": "int"
+          },
+          {
+            "name": "reference_id",
+            "doc": "Order / delivery / return / cycle-count id",
+            "type": "string"
+          },
+          {
+            "name": "updated_at",
+            "doc": "UTC",
+            "type": {
+              "type": "long",
+              "logicalType": "timestamp-millis"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

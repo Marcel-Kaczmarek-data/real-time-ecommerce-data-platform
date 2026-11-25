@@ -1,0 +1,83 @@
+# Optional cloud environment: AWS S3 + Databricks (Unity Catalog) + Confluent
+# Cloud or Amazon MSK. Nothing here is provisioned automatically; see
+# infrastructure/terraform and docs/cost-analysis.md.
+environment: cloud
+
+storage:
+  endpoint_url: ""                     # empty => native AWS S3 endpoint
+  region: ${AWS_REGION:-eu-central-1}
+  access_key: ""                       # never set: Databricks uses an instance profile / UC storage credential
+  secret_key: ""
+  path_style_access: false
+  ssl_enabled: true
+  lakehouse_bucket: ${LAKEHOUSE_BUCKET:-ecom-dp-dev-lakehouse}
+  landing_bucket: ${LANDING_BUCKET:-ecom-dp-dev-landing}
+
+lakehouse:
+  table_format: catalog                # tables addressed as <catalog>.<layer>.<table>
+  catalog: ${DATABRICKS_CATALOG:-ecommerce_dev}
+  root: s3://${LAKEHOUSE_BUCKET:-ecom-dp-dev-lakehouse}
+  checkpoint_root: s3://${LAKEHOUSE_BUCKET:-ecom-dp-dev-lakehouse}/_checkpoints
+  layers: [bronze, silver, gold, audit, quarantine]
+
+kafka:
+  bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-}
+  schema_registry_url: ${SCHEMA_REGISTRY_URL:-}
+  security_protocol: SASL_SSL
+  sasl_mechanism: PLAIN
+  # Credentials are read from a Databricks secret scope at runtime:
+  #   dbutils.secrets.get("ecom-platform", "kafka-api-key")
+  secret_scope: ecom-platform
+  topics_file: config/kafka-topics.yaml
+  producer:
+    acks: all
+    enable.idempotence: true
+    compression.type: zstd
+    linger.ms: 50
+    batch.size: 524288
+    retries: 2147483647
+    delivery.timeout.ms: 300000
+    max.in.flight.requests.per.connection: 5
+  consumer:
+    starting_offsets: earliest
+    max_offsets_per_trigger: 2000000
+    fail_on_data_loss: true
+
+postgres:
+  host: ${POSTGRES_HOST:-}
+  port: ${POSTGRES_PORT:-5432}
+  database: ${POSTGRES_DB:-ecommerce}
+  user: ${POSTGRES_USER:-}
+  password: ${POSTGRES_PASSWORD:-}
+  schema: ops
+
+spark:
+  master: ""                           # provided by Databricks
+  app_name_prefix: ecom
+  driver_memory: ""
+  conf:
+    spark.sql.shuffle.partitions: auto
+    spark.sql.session.timeZone: UTC
+    spark.databricks.delta.optimizeWrite.enabled: "true"
+    spark.databricks.delta.autoCompact.enabled: "true"
+
+streaming:
+  bronze_trigger_seconds: 30
+  silver_trigger_seconds: 60
+  late_event_threshold_minutes: 60
+  realtime_watermark_minutes: 10
+  session_gap_minutes: 30
+
+quality:
+  results_table: audit.dq_results
+  block_on_critical: true
+
+monitoring:
+  pushgateway_url: ${PUSHGATEWAY_URL:-}
+  enabled: false
+
+serving:
+  engine: databricks_sql
+  cache_ttl_seconds: 300
+
+reporting_currency: USD

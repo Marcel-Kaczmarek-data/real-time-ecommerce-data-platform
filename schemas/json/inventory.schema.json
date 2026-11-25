@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ecommerce.example/inventory.schema.json",
+  "title": "InventoryEvent",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "event_version",
+    "event_timestamp",
+    "source_system",
+    "correlation_id",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "enum": [
+        "inventory_reserved",
+        "inventory_released",
+        "inventory_shipped",
+        "inventory_replenished",
+        "inventory_adjusted"
+      ]
+    },
+    "event_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_system": {
+      "type": "string"
+    },
+    "correlation_id": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "movement_id",
+        "warehouse_id",
+        "product_id",
+        "movement_type",
+        "quantity_delta_available",
+        "quantity_delta_reserved",
+        "available_quantity",
+        "reserved_quantity",
+        "reorder_threshold",
+        "reference_id",
+        "updated_at"
+      ],
+      "properties": {
+        "movement_id": {
+          "type": "string",
+          "description": "Business key"
+        },
+        "warehouse_id": {
+          "type": "string",
+          "description": "FK warehouses"
+        },
+        "product_id": {
+          "type": "string",
+          "description": "FK products"
+        },
+        "movement_type": {
+          "type": "string",
+          "description": "reserve | release | ship | replenish | return_restock | adjust"
+        },
+        "quantity_delta_available": {
+          "type": "integer",
+          "description": "Change of available units"
+        },
+        "quantity_delta_reserved": {
+          "type": "integer",
+          "description": "Change of reserved units"
+        },
+        "available_quantity": {
+          "type": "integer",
+          "description": "Available units after the movement (informational)"
+        },
+        "reserved_quantity": {
+          "type": "integer",
+          "description": "Reserved units after the movement (informational)"
+        },
+        "reorder_threshold": {
+          "type": "integer",
+          "description": "Reorder point"
+        },
+        "reference_id": {
+          "type": "string",
+          "description": "Order / delivery / return / cycle-count id"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "UTC"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

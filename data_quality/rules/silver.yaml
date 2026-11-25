@@ -1,0 +1,117 @@
+# Silver data-quality rules. Severity:
+#   critical      - blocks promotion to Gold (data_quality/gate.py)
+#   warning       - reported, alerts, does not block
+#   informational - tracked for trends only
+# `max_failure_rate` (0-1) tolerates a small share of failing rows; default 0.
+# `{silver.x}` placeholders in SQL are replaced with registered table views.
+suite: silver
+owner: data-platform-team
+checks:
+  # ------------------------------------------------------------- orders ---
+  - {name: orders_pk_unique, table: silver.orders, type: unique, columns: [order_id], severity: critical}
+  - {name: orders_mandatory_fields, table: silver.orders, type: not_null, severity: critical,
+     columns: [order_id, customer_id, order_timestamp, order_status, currency, total_amount, total_amount_usd]}
+  - {name: orders_status_accepted, table: silver.orders, type: accepted_values, column: order_status, severity: critical,
+     values: [created, confirmed, cancelled, shipped, delivered, returned]}
+  - {name: orders_channel_accepted, table: silver.orders, type: accepted_values, column: sales_channel, severity: warning,
+     values: [web, mobile_app, marketplace, social_commerce]}
+  - {name: orders_amounts_non_negative, table: silver.orders, type: expression, severity: critical,
+     expression: "subtotal_amount >= 0 AND discount_amount >= 0 AND total_amount >= 0"}
+  - {name: orders_total_reconciles, table: silver.orders, type: expression, severity: critical,
+     expression: "abs(total_amount - (subtotal_amount - discount_amount + shipping_amount + tax_amount)) <= 0.05"}
+  - {name: orders_timestamp_valid, table: silver.orders, type: expression, severity: critical,
+     expression: "order_timestamp BETWEEN timestamp'2020-01-01' AND current_timestamp() + INTERVAL 5 MINUTES"}
+  - {name: orders_currency_matches_country, table: silver.orders, type: sql, severity: warning, max_failure_rate: 0.001,
+     sql: "SELECT count(*) AS failed FROM {silver.orders} o JOIN {silver.countries} c ON c.country_code = o.country
+           WHERE o.currency <> c.currency_code"}
+  - {name: orders_customer_exists, table: silver.orders, type: referential, column: customer_id, severity: warning,
+     ref_table: silver.customers, ref_column: customer_id, max_failure_rate: 0.01}
+  - {name: orders_freshness, table: silver.orders, type: freshness, column: last_event_at, max_age_hours: 6,
+     severity: warning}
+  - {name: orders_row_count_anomaly, table: silver.orders, type: row_count, min_rows: 1, max_change_pct: 50,
+     severity: warning}
+  - {name: orders_valid_status_transitions, table: silver.order_status_history, type: sql, severity: warning,
+     max_failure_rate: 0.001,
+     sql: "SELECT count(*) AS failed FROM (
+             SELECT order_status AS s, LAG(order_status) OVER (PARTITION BY order_id ORDER BY event_timestamp, event_id) AS p
+             FROM {silver.order_status_history}) x
+           WHERE p IS NOT NULL AND p <> s AND NOT (
+             (p = 'created' AND s IN ('confirmed','cancelled')) OR (p = 'confirmed' AND s IN ('shipped','cancelled'))
+             OR (p = 'shipped' AND s = 'delivered') OR (p = 'delivered' AND s = 'returned'))"}
+
+  # -------------------------------------------------------- order items ---
+  - {name: order_items_pk_unique, table: silver.order_items, type: unique, columns: [order_item_id], severity: critical}
+  - {name: order_items_quantity_range, table: silver.order_items, type: range, column: quantity, min: 1, max: 100,
+     severity: critical}
+  - {name: order_items_order_exists, table: silver.order_items, type: referential, column: order_id, severity: warning,
+     ref_table: silver.orders, ref_column: order_id, max_failure_rate: 0.01}
+  - {name: order_items_product_exists, table: silver.order_items, type: referential, column: product_id,
+     severity: warning, ref_table: silver.products, ref_column: product_id}
+  - {name: order_items_currency_consistent, table: silver.order_items, type: sql, severity: warning,
+     sql: "SELECT count(*) AS failed FROM {silver.order_items} i JOIN {silver.orders} o ON o.order_id = i.order_id
+           WHERE i.currency <> o.currency"}
+  - {name: orders_vs_items_subtotal, table: silver.orders, type: sql, severity: warning, max_failure_rate: 0.005,
+     sql: "SELECT count(*) AS failed FROM {silver.orders} o JOIN (
+             SELECT order_id, sum(line_gross_amount) AS gross FROM {silver.order_items} GROUP BY order_id) i
+           ON i.order_id = o.order_id WHERE abs(i.gross - o.subtotal_amount) > 0.05"}
+
+  # ----------------------------------------------------------- payments ---
+  - {name: payments_pk_unique, table: silver.payments, type: unique, columns: [payment_id], severity: critical}
+  - {name: payments_amount_positive, table: silver.payments, type: range, column: payment_amount, min: 0.01,
+     severity: critical}
+  - {name: payments_status_accepted, table: silver.payments, type: accepted_values, column: payment_status,
+     values: [authorized, captured, failed], severity: critical}
+  - {name: payments_order_exists, table: silver.payments, type: referential, column: order_id, severity: warning,
+     ref_table: silver.orders, ref_column: order_id, max_failure_rate: 0.01}
+  - {name: order_payment_reconciliation, table: silver.payments, type: sql, severity: warning, max_failure_rate: 0.005,
+     sql: "SELECT count(*) AS failed FROM {silver.orders} o JOIN (
+             SELECT order_id, sum(payment_amount) AS captured FROM {silver.payments}
+             WHERE payment_status = 'captured' GROUP BY order_id) p ON p.order_id = o.order_id
+           WHERE abs(p.captured - o.total_amount) > 0.01"}
+  - {name: payments_single_capture_per_order, table: silver.payments, type: sql, severity: critical,
+     sql: "SELECT count(*) AS failed FROM (SELECT order_id FROM {silver.payments} WHERE payment_status = 'captured'
+           GROUP BY order_id HAVING count(*) > 1)"}
+
+  # ---------------------------------------------------- refunds/returns ---
+  - {name: refunds_pk_unique, table: silver.refunds, type: unique, columns: [refund_id], severity: critical}
+  - {name: refunds_not_exceeding_order, table: silver.refunds, type: sql, severity: critical,
+     sql: "SELECT count(*) AS failed FROM (SELECT order_id, sum(refund_amount) AS refunded FROM {silver.refunds}
+           GROUP BY order_id) r JOIN {silver.orders} o ON o.order_id = r.order_id
+           WHERE r.refunded > o.total_amount + 0.05"}
+  - {name: returns_pk_unique, table: silver.returns, type: unique, columns: [return_id], severity: critical}
+
+  # ---------------------------------------------- inventory / shipments ---
+  - {name: inventory_negative_stock, table: silver.inventory, type: expression, severity: warning,
+     expression: "available_quantity >= 0 AND reserved_quantity >= 0"}
+  - {name: inventory_movements_pk_unique, table: silver.inventory_movements, type: unique, columns: [movement_id],
+     severity: critical}
+  - {name: shipments_pk_unique, table: silver.shipments, type: unique, columns: [shipment_id], severity: critical}
+  - {name: shipments_delivery_after_shipping, table: silver.shipments, type: expression, severity: critical,
+     expression: "actual_delivery IS NULL OR actual_delivery >= shipped_at"}
+  - {name: shipments_carrier_accepted, table: silver.shipments, type: accepted_values, column: carrier,
+     severity: informational, values: [DHL, UPS, FedEx, DPD, Royal Mail, Japan Post, Australia Post]}
+
+  # --------------------------------------------------- customers / ref ---
+  - {name: customers_pk_unique, table: silver.customers, type: unique, columns: [customer_id], severity: critical}
+  - {name: customers_pii_masked, table: silver.customers, type: expression, severity: critical,
+     expression: "email_masked LIKE '%***@%' AND length(email_hash) = 64"}
+  - {name: customers_country_exists, table: silver.customers, type: referential, column: country_code,
+     severity: warning, ref_table: silver.countries, ref_column: country_code}
+  - {name: products_pk_unique, table: silver.products, type: unique, columns: [product_id], severity: critical}
+  - {name: products_price_positive, table: silver.products, type: range, column: unit_price, min: 0.01,
+     severity: critical}
+  - {name: fx_rates_cover_currencies, table: silver.exchange_rates, type: sql, severity: critical,
+     sql: "SELECT count(*) AS failed FROM {silver.currencies} c LEFT JOIN {silver.exchange_rates} r
+           ON r.currency_code = c.currency_code WHERE r.currency_code IS NULL"}
+  - {name: fx_rates_freshness, table: silver.exchange_rates, type: freshness, column: rate_date, max_age_hours: 72,
+     severity: warning}
+
+  # ----------------------------------------------------------- behaviour ---
+  - {name: clickstream_pk_unique, table: silver.clickstream, type: unique, columns: [event_id], severity: critical}
+  - {name: clickstream_event_type_accepted, table: silver.clickstream, type: accepted_values, column: event_type,
+     severity: critical,
+     values: [page_view, search, product_view, add_to_cart, remove_from_cart, checkout_started, purchase]}
+  - {name: clickstream_late_arrival_rate, table: silver.clickstream, type: expression, severity: informational,
+     expression: "NOT is_late_arrival", max_failure_rate: 0.02}
+  - {name: sessions_duration_non_negative, table: silver.customer_sessions, type: range,
+     column: session_duration_seconds, min: 0, severity: warning}

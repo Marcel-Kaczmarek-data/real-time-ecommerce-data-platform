@@ -1,0 +1,20 @@
+-r requirements.txt
+
+# --- Testing ---
+pytest==8.3.4
+pytest-cov==6.0.0
+pytest-timeout==2.3.1
+
+# --- Linting / formatting / typing ---
+ruff==0.9.4
+mypy==1.14.1
+types-PyYAML==6.0.12.20241230
+types-requests==2.32.0.20241016
+types-psycopg2==2.9.21.20241019
+pandas-stubs==2.1.4.231227
+
+# --- SQL linting ---
+sqlfluff==3.3.0
+
+# --- Security scanning ---
+pip-audit==2.7.3

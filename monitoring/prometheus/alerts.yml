@@ -1,0 +1,131 @@
+# Alert rules. Thresholds are sized for the local (lite) profile; production
+# values are noted inline. Routing (Alertmanager -> Slack / PagerDuty / SNS) is
+# environment-specific and documented in docs/operational-runbook.md.
+groups:
+  - name: streaming
+    rules:
+      - alert: HighConsumerLag
+        expr: max(ecom_stream_offsets_behind_latest{stat="maxOffsetsBehindLatest"}) > 50000
+        for: 5m
+        labels: {severity: warning, team: data-platform}
+        annotations:
+          summary: "Bronze stream is {{ $value | humanize }} offsets behind Kafka"
+          runbook: docs/operational-runbook.md#high-consumer-lag
+      - alert: StreamingQueryStalled
+        expr: time() - max by (query) (ecom_stream_last_progress_timestamp_seconds) > 300
+        for: 2m
+        labels: {severity: critical, team: data-platform}
+        annotations:
+          summary: "Streaming query {{ $labels.query }} has not progressed for 5 minutes"
+          runbook: docs/operational-runbook.md#streaming-job-down
+      - alert: StreamingServiceDown
+        expr: up{job="spark-streaming"} == 0
+        for: 3m
+        labels: {severity: critical, team: data-platform}
+        annotations:
+          summary: "spark-streaming metrics endpoint unreachable"
+      - alert: ProcessingLatencyHigh
+        expr: ecom_bronze_ingest_latency_seconds{quantile="p95"} > 120   # production SLO: 60s
+        for: 10m
+        labels: {severity: warning, team: data-platform}
+        annotations:
+          summary: "p95 Kafka->Bronze latency is {{ $value | humanizeDuration }}"
+      - alert: LateEventsDroppedFromRealtimeView
+        expr: increase(ecom_stream_rows_dropped_by_watermark_total[30m]) > 100
+        labels: {severity: info, team: data-platform}
+        annotations:
+          summary: "Late events beyond the watermark were dropped from the real-time view (reconciled in Gold)"
+
+  - name: ingestion-quality
+    rules:
+      - alert: DeadLetterSpike
+        expr: sum(increase(ecom_dead_letter_events_total[15m])) > 50
+        labels: {severity: warning, team: data-platform}
+        annotations:
+          summary: "{{ $value }} events sent to the dead-letter topic in 15 minutes"
+          runbook: docs/operational-runbook.md#dead-letter-queue
+      - alert: ExcessiveCorruptRecords
+        expr: sum(increase(ecom_bronze_corrupt_rows_total[15m])) > 10
+        labels: {severity: warning, team: data-platform}
+        annotations:
+          summary: "Undecodable Kafka records are being quarantined"
+      - alert: CriticalDataQualityFailure
+        expr: max(ecom_dq_failed_checks{severity="critical"}) > 0
+        labels: {severity: critical, team: data-platform}
+        annotations:
+          summary: "Critical data-quality checks failing - Gold promotion is blocked"
+          runbook: docs/operational-runbook.md#data-quality-gate-blocked
+      - alert: DataQualityScoreLow
+        expr: min(ecom_dq_quality_score) < 95
+        labels: {severity: warning, team: data-platform}
+        annotations:
+          summary: "Data-quality score dropped to {{ $value }}"
+      - alert: StaleData
+        expr: max by (table) (ecom_dq_data_age_hours) > 6
+        labels: {severity: warning, team: data-platform}
+        annotations:
+          summary: "{{ $labels.table }} newest record is {{ $value | humanize }} hours old"
+          runbook: docs/operational-runbook.md#stale-data
+
+  - name: pipelines
+    rules:
+      - alert: PipelineFailed
+        expr: ecom_job_last_success == 0
+        labels: {severity: critical, team: data-platform}
+        annotations:
+          summary: "Batch job {{ $labels.job }} failed on its last run"
+          runbook: docs/operational-runbook.md#failed-pipeline
+      - alert: PipelineNotRunRecently
+        expr: time() - ecom_job_last_success_timestamp_seconds > 6 * 3600
+        labels: {severity: warning, team: data-platform}
+        annotations:
+          summary: "{{ $labels.job }} has not succeeded for 6 hours"
+      - alert: AirflowTaskFailed
+        expr: ecom_airflow_task_failed == 1
+        labels: {severity: warning, team: data-platform}
+        annotations:
+          summary: "Airflow task {{ $labels.dag }}.{{ $labels.task }} failed (retries exhausted)"
+      - alert: AirflowSlaMissed
+        expr: ecom_airflow_sla_missed == 1
+        labels: {severity: warning, team: data-platform}
+        annotations:
+          summary: "SLA missed in DAG {{ $labels.dag }}"
+      - alert: FinancialReconciliationBreach
+        expr: ecom_reconciliation_breach_days > 0
+        labels: {severity: critical, team: finance-data}
+        annotations:
+          summary: "{{ $value }} day(s) outside the reconciliation tolerance"
+
+  - name: infrastructure
+    rules:
+      - alert: KafkaBrokerDown
+        expr: kafka_brokers < 1 or up{job="kafka"} == 0
+        for: 1m
+        labels: {severity: critical, team: data-platform}
+        annotations:
+          summary: "No Kafka broker reachable"
+          runbook: docs/operational-runbook.md#kafka-broker-down
+      - alert: ProducerDown
+        expr: up{job="event-producer"} == 0
+        for: 3m
+        labels: {severity: warning, team: data-platform}
+        annotations:
+          summary: "Event producer is down"
+      - alert: ObjectStorageDown
+        expr: up{job="object-storage"} == 0
+        for: 2m
+        labels: {severity: critical, team: data-platform}
+        annotations:
+          summary: "Object storage (S3 API) unreachable"
+      - alert: StorageCapacityHigh
+        expr: sum(container_fs_usage_bytes{name="ecom-object-storage"}) > 20e9   # production: S3 has no hard limit; alert on cost
+        for: 15m
+        labels: {severity: warning, team: data-platform}
+        annotations:
+          summary: "Object storage uses {{ $value | humanize1024 }}B"
+      - alert: ContainerMemoryHigh
+        expr: max by (name) (container_memory_working_set_bytes{name=~"ecom-.*"} / container_spec_memory_limit_bytes{name=~"ecom-.*"} > 0.9 and container_spec_memory_limit_bytes{name=~"ecom-.*"} > 0)
+        for: 10m
+        labels: {severity: warning, team: data-platform}
+        annotations:
+          summary: "{{ $labels.name }} uses more than 90% of its memory limit"

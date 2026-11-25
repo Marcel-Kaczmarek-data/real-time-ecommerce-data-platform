@@ -1,0 +1,63 @@
+name: Integration & end-to-end
+
+# Spins up the core stack with Docker Compose, seeds a small deterministic
+# dataset and runs the integration, failure-recovery and end-to-end suites.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+  pull_request:
+    paths:
+      - "pipelines/**"
+      - "ingestion/**"
+      - "data_quality/**"
+      - "docker-compose.yml"
+      - "docker/**"
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      PLATFORM_SCALE: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare environment
+        run: cp .env.example .env
+      - uses: docker/setup-buildx-action@v3
+      - name: Build platform image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/platform/Dockerfile
+          load: true
+          tags: ecom-platform:dev
+          cache-from: type=gha,scope=platform
+          cache-to: type=gha,mode=max,scope=platform
+      - name: Start core services
+        run: docker compose up -d --wait kafka schema-registry postgres object-storage reference-api
+      - name: Bootstrap storage, topics and seed data (test scale)
+        run: |
+          docker compose up storage-init
+          docker compose run --rm --no-deps platform python -m data_generator.cli --scale test seed --history-days 20 --stream-days 2
+          docker compose run --rm --no-deps platform python -m ingestion.kafka_producers.admin bootstrap
+          docker compose run --rm --no-deps platform python -m ingestion.kafka_producers.run catchup --metrics-port 0
+          docker compose run --rm --no-deps platform python -m pipelines.bronze.stream_kafka_to_bronze --once
+          docker compose run --rm --no-deps platform python -m ingestion.batch.run --all
+          docker compose run --rm --no-deps platform python -m pipelines.silver.run
+          docker compose run --rm --no-deps platform python -m pipelines.gold.run
+      - name: Integration + failure-recovery tests
+        run: docker compose run --rm --no-deps platform python -m pytest tests/integration -m integration -q -p no:cacheprovider
+      - name: End-to-end test
+        run: docker compose run --rm --no-deps platform python -m pytest tests/end_to_end -m e2e -q -p no:cacheprovider
+      - name: Data quality suite
+        run: docker compose run --rm --no-deps platform python -m data_quality.run --fail-on critical
+      - name: Service logs on failure
+        if: failure()
+        run: docker compose logs --tail=200
+      - name: Tear down
+        if: always()
+        run: docker compose --profile '*' down -v

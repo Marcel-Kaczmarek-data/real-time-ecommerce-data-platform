@@ -1,0 +1,51 @@
+category_id,category_name,department,parent_category
+CAT-001,Smartphones,Electronics,Electronics
+CAT-002,Laptops,Electronics,Electronics
+CAT-003,Headphones,Electronics,Electronics
+CAT-004,Smart Home,Electronics,Electronics
+CAT-005,Cameras,Electronics,Electronics
+CAT-006,Women's Clothing,Fashion,Fashion
+CAT-007,Men's Clothing,Fashion,Fashion
+CAT-008,Shoes,Fashion,Fashion
+CAT-009,Bags,Fashion,Fashion
+CAT-010,Accessories,Fashion,Fashion
+CAT-011,Cookware,Home & Kitchen,Home & Kitchen
+CAT-012,Furniture,Home & Kitchen,Home & Kitchen
+CAT-013,Bedding,Home & Kitchen,Home & Kitchen
+CAT-014,Home Decor,Home & Kitchen,Home & Kitchen
+CAT-015,Small Appliances,Home & Kitchen,Home & Kitchen
+CAT-016,Skincare,Beauty,Beauty
+CAT-017,Makeup,Beauty,Beauty
+CAT-018,Fragrance,Beauty,Beauty
+CAT-019,Hair Care,Beauty,Beauty
+CAT-020,Grooming,Beauty,Beauty
+CAT-021,Fitness,Sports & Outdoors,Sports & Outdoors
+CAT-022,Cycling,Sports & Outdoors,Sports & Outdoors
+CAT-023,Camping,Sports & Outdoors,Sports & Outdoors
+CAT-024,Team Sports,Sports & Outdoors,Sports & Outdoors
+CAT-025,Running,Sports & Outdoors,Sports & Outdoors
+CAT-026,Board Games,Toys & Games,Toys & Games
+CAT-027,Building Sets,Toys & Games,Toys & Games
+CAT-028,Dolls,Toys & Games,Toys & Games
+CAT-029,Outdoor Play,Toys & Games,Toys & Games
+CAT-030,Puzzles,Toys & Games,Toys & Games
+CAT-031,Fiction,Books & Media,Books & Media
+CAT-032,Non-Fiction,Books & Media,Books & Media
+CAT-033,Children's Books,Books & Media,Books & Media
+CAT-034,Music,Books & Media,Books & Media
+CAT-035,Movies,Books & Media,Books & Media
+CAT-036,Coffee & Tea,Grocery,Grocery
+CAT-037,Snacks,Grocery,Grocery
+CAT-038,Pantry,Grocery,Grocery
+CAT-039,Beverages,Grocery,Grocery
+CAT-040,Organic,Grocery,Grocery
+CAT-041,Vitamins,Health,Health
+CAT-042,Personal Care,Health,Health
+CAT-043,Medical Supplies,Health,Health
+CAT-044,Wellness,Health,Health
+CAT-045,Baby Care,Health,Health
+CAT-046,Car Electronics,Automotive,Automotive
+CAT-047,Car Care,Automotive,Automotive
+CAT-048,Tools,Automotive,Automotive
+CAT-049,Tires & Wheels,Automotive,Automotive
+CAT-050,Interior,Automotive,Automotive

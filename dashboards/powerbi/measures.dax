@@ -1,0 +1,171 @@
+// ============================================================================
+// DAX measures - KPI definitions identical to docs/kpi-definitions.md and the
+// Gold marts. Create them in a dedicated _Measures table.
+// All monetary measures are USD (reporting currency).
+// ============================================================================
+
+// ---------------------------------------------------------------- Sales ----
+GMV (USD) =
+    SUMX ( fact_orders, fact_orders[subtotal_amount_usd] + fact_orders[shipping_amount_usd] )
+
+Gross Revenue (USD) =
+    SUM ( fact_orders[gross_revenue_usd] )            // paid orders: subtotal - discount + shipping, ex tax
+
+Net Revenue (USD) =
+    SUM ( fact_orders[net_revenue_usd] )              // gross revenue - refunds (ex tax)
+
+Placed Orders =
+    COUNTROWS ( fact_orders )
+
+Paid Orders =
+    CALCULATE ( COUNTROWS ( fact_orders ), fact_orders[is_paid] = TRUE () )
+
+Average Order Value (USD) =
+    DIVIDE ( [Gross Revenue (USD)], [Paid Orders] )
+
+Discounts (USD) =
+    CALCULATE ( SUM ( fact_orders[discount_amount_usd] ), fact_orders[is_paid] = TRUE () )
+
+Discount Rate =
+    DIVIDE (
+        [Discounts (USD)],
+        CALCULATE ( SUM ( fact_orders[subtotal_amount_usd] ), fact_orders[is_paid] = TRUE () )
+    )
+
+Refunds ex Tax (USD) =
+    CALCULATE (
+        SUMX ( fact_orders, fact_orders[refund_amount_usd] - fact_orders[refund_tax_amount_usd] ),
+        fact_orders[is_paid] = TRUE ()
+    )
+
+Refund Rate =
+    DIVIDE ( [Refunds ex Tax (USD)], [Gross Revenue (USD)] )
+
+Cancellation Rate =
+    DIVIDE ( CALCULATE ( COUNTROWS ( fact_orders ), fact_orders[is_cancelled] = TRUE () ), [Placed Orders] )
+
+Units Sold =
+    CALCULATE ( SUM ( fact_order_items[quantity] ), fact_order_items[is_paid] = TRUE () )
+
+Category Net Revenue (USD) =
+    CALCULATE ( SUM ( fact_order_items[line_net_amount_usd] ), fact_order_items[is_paid] = TRUE () )
+
+Gross Margin (USD) =
+    CALCULATE ( SUM ( fact_order_items[line_margin_usd] ), fact_order_items[is_paid] = TRUE () )
+
+Gross Margin % =
+    DIVIDE ( [Gross Margin (USD)], [Category Net Revenue (USD)] )
+
+// ------------------------------------------------------ Time intelligence --
+Net Revenue MTD =
+    TOTALMTD ( [Net Revenue (USD)], dim_date[date] )
+
+Net Revenue Previous Period =
+    VAR _days = COUNTROWS ( dim_date )
+    RETURN CALCULATE ( [Net Revenue (USD)], DATEADD ( dim_date[date], -_days, DAY ) )
+
+Net Revenue Growth % =
+    DIVIDE ( [Net Revenue (USD)] - [Net Revenue Previous Period], [Net Revenue Previous Period] )
+
+Net Revenue WoW % =
+    VAR _prev = CALCULATE ( [Net Revenue (USD)], DATEADD ( dim_date[date], -7, DAY ) )
+    RETURN DIVIDE ( [Net Revenue (USD)] - _prev, _prev )
+
+Net Revenue YoY % =
+    VAR _prev = CALCULATE ( [Net Revenue (USD)], SAMEPERIODLASTYEAR ( dim_date[date] ) )
+    RETURN DIVIDE ( [Net Revenue (USD)] - _prev, _prev )
+
+Net Revenue 7-day Avg =
+    AVERAGEX ( DATESINPERIOD ( dim_date[date], MAX ( dim_date[date] ), -7, DAY ), [Net Revenue (USD)] )
+
+// ------------------------------------------------------------ Customers ----
+Active Customers =
+    CALCULATE ( DISTINCTCOUNT ( fact_orders[customer_id] ), fact_orders[is_paid] = TRUE () )
+
+New Customers =
+    // customers whose first paid order falls in the current filter context
+    VAR _customers =
+        CALCULATETABLE ( VALUES ( fact_orders[customer_id] ), fact_orders[is_paid] = TRUE () )
+    RETURN
+        COUNTROWS (
+            FILTER (
+                _customers,
+                CALCULATE (
+                    MIN ( fact_orders[order_date] ),
+                    ALL ( dim_date ), fact_orders[is_paid] = TRUE ()
+                ) >= MIN ( dim_date[date] )
+            )
+        )
+
+Returning Customers =
+    [Active Customers] - [New Customers]
+
+Repeat Purchase Rate =
+    DIVIDE (
+        COUNTROWS ( FILTER ( mart_customer_360, mart_customer_360[total_completed_orders] >= 2 ) ),
+        COUNTROWS ( FILTER ( mart_customer_360, mart_customer_360[total_completed_orders] >= 1 ) )
+    )
+
+Average Historical CLV (USD) =
+    AVERAGEX (
+        FILTER ( mart_customer_360, mart_customer_360[total_completed_orders] > 0 ),
+        mart_customer_360[historical_clv_usd]
+    )
+
+// ----------------------------------------------------------- Conversion ----
+Sessions =
+    SUM ( mart_conversion_funnel[sessions] )
+
+Purchase Conversion Rate =
+    DIVIDE ( SUM ( mart_conversion_funnel[converted_sessions] ), [Sessions] )
+
+Add-to-Cart Rate =
+    DIVIDE ( SUM ( mart_conversion_funnel[sessions_with_cart] ), [Sessions] )
+
+Checkout Rate =
+    DIVIDE ( SUM ( mart_conversion_funnel[sessions_with_checkout] ), [Sessions] )
+
+Cart Abandonment Rate =
+    1 - DIVIDE ( SUM ( mart_conversion_funnel[converted_sessions] ), SUM ( mart_conversion_funnel[sessions_with_cart] ) )
+
+// ------------------------------------------------------------- Payments ----
+Payment Success Rate =
+    DIVIDE (
+        CALCULATE ( COUNTROWS ( fact_payments ), fact_payments[is_success] = TRUE () ),
+        CALCULATE ( COUNTROWS ( fact_payments ), fact_payments[payment_status] IN { "captured", "failed" } )
+    )
+
+Payment Failure Rate =
+    1 - [Payment Success Rate]
+
+Captured Amount (USD) =
+    CALCULATE ( SUM ( fact_payments[payment_amount_usd] ), fact_payments[is_success] = TRUE () )
+
+Reconciliation Difference (USD) =
+    CALCULATE (
+        SUMX ( fact_orders, fact_orders[captured_amount_usd] - fact_orders[total_amount_usd] ),
+        fact_orders[is_paid] = TRUE ()
+    )
+
+// ---------------------------------------------------------- Fulfilment -----
+On-time Delivery Rate =
+    DIVIDE (
+        CALCULATE ( COUNTROWS ( fact_shipments ), fact_shipments[is_on_time] = TRUE () ),
+        CALCULATE ( COUNTROWS ( fact_shipments ), fact_shipments[is_delivered] = TRUE () )
+    )
+
+Average Fulfilment Hours =
+    AVERAGE ( fact_shipments[fulfillment_hours] )
+
+Average Transit Days =
+    AVERAGE ( fact_shipments[transit_days] )
+
+Delayed Shipments =
+    CALCULATE ( COUNTROWS ( fact_shipments ), fact_shipments[is_delayed] = TRUE () )
+
+SLA Violations =
+    CALCULATE ( COUNTROWS ( fact_shipments ), fact_shipments[is_sla_breach] = TRUE () )
+
+// -------------------------------------------------------------- Returns ----
+Return Rate (units) =
+    DIVIDE ( SUM ( fact_returns[returned_quantity] ), [Units Sold] )

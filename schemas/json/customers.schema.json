@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ecommerce.example/customers.schema.json",
+  "title": "CustomersEvent",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "event_version",
+    "event_timestamp",
+    "source_system",
+    "correlation_id",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "enum": [
+        "customer_registered",
+        "customer_profile_updated"
+      ]
+    },
+    "event_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_system": {
+      "type": "string"
+    },
+    "correlation_id": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "customer_id",
+        "first_name",
+        "last_name",
+        "email",
+        "country",
+        "registration_date",
+        "customer_segment",
+        "loyalty_status",
+        "marketing_opt_in",
+        "updated_at"
+      ],
+      "properties": {
+        "customer_id": {
+          "type": "string",
+          "description": "Business key, CUST-nnnnnnn"
+        },
+        "first_name": {
+          "type": "string",
+          "description": "PII - masked in Silver"
+        },
+        "last_name": {
+          "type": "string",
+          "description": "PII - masked in Silver"
+        },
+        "email": {
+          "type": "string",
+          "description": "PII - hashed/masked in Silver"
+        },
+        "country": {
+          "type": "string",
+          "description": "ISO 3166-1 alpha-2"
+        },
+        "registration_date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "UTC"
+        },
+        "customer_segment": {
+          "type": "string",
+          "description": "consumer | small_business | corporate"
+        },
+        "loyalty_status": {
+          "type": "string",
+          "description": "none | bronze | silver | gold | platinum"
+        },
+        "marketing_opt_in": {
+          "type": "boolean",
+          "description": "GDPR marketing consent"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last change in the source system (UTC)"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

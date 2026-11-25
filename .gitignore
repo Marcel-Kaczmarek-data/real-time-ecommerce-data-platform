@@ -1,0 +1,62 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+
+# --- Tooling caches ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.ipynb_checkpoints/
+
+# --- IDEs / OS ---
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- Secrets: never commit real credentials ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.tfvars
+!*.tfvars.example
+credentials.json
+
+# --- Local runtime data ---
+/data/
+/tmp/
+spark-warehouse/
+metastore_db/
+derby.log
+checkpoints/
+*.log
+logs/
+
+# --- Generated sample datasets (small committed samples live in sample_data/committed) ---
+/sample_data/generated/
+/benchmarks/runs/*.tmp
+
+# --- Terraform ---
+.terraform/
+.terraform.lock.hcl.bak
+*.tfstate
+*.tfstate.*
+crash.log
+tfplan
+
+# --- Databricks ---
+.databricks/

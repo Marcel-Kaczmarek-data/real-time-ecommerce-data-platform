@@ -1,0 +1,144 @@
+# Batch ingestion source catalogue.
+#
+# type:      postgres | file | rest
+# mode:      full (snapshot every run) | incremental (watermark on `watermark_column`)
+# landing:   prefix in the landing bucket where raw extracts / drops are stored
+# target:    Bronze table
+# keys:      business key (documented; used by Silver for dedup)
+# group:     DAG grouping
+sources:
+  # ---------------------------------------------------------- PostgreSQL ---
+  ops_customers:
+    type: postgres
+    table: ops.customers
+    mode: incremental
+    watermark_column: updated_at
+    landing: postgres/customers
+    target: bronze.customers_raw
+    keys: [customer_id]
+    group: reference
+  ops_products:
+    type: postgres
+    table: ops.products
+    mode: incremental
+    watermark_column: updated_at
+    landing: postgres/products
+    target: bronze.products_raw
+    keys: [product_id]
+    group: catalog
+  ops_categories:
+    type: postgres
+    table: ops.categories
+    mode: full
+    landing: postgres/categories
+    target: bronze.categories_raw
+    keys: [category_id]
+    group: catalog
+  ops_warehouses:
+    type: postgres
+    table: ops.warehouses
+    mode: full
+    landing: postgres/warehouses
+    target: bronze.warehouses_raw
+    keys: [warehouse_id]
+    group: reference
+  ops_countries:
+    type: postgres
+    table: ops.countries
+    mode: full
+    landing: postgres/countries
+    target: bronze.countries_raw
+    keys: [country_code]
+    group: reference
+  ops_currencies:
+    type: postgres
+    table: ops.currencies
+    mode: full
+    landing: postgres/currencies
+    target: bronze.currencies_raw
+    keys: [currency_code]
+    group: reference
+  ops_promotions:
+    type: postgres
+    table: ops.promotions
+    mode: full
+    landing: postgres/promotions
+    target: bronze.promotions_raw
+    keys: [promotion_id]
+    group: reference
+  ops_inventory:
+    type: postgres
+    table: ops.inventory
+    mode: full
+    landing: postgres/inventory
+    target: bronze.inventory_snapshot_raw
+    keys: [warehouse_id, product_id]
+    group: reference
+  ops_supplier_deliveries:
+    type: postgres
+    table: ops.supplier_deliveries
+    mode: incremental
+    watermark_column: updated_at
+    landing: postgres/supplier_deliveries
+    target: bronze.supplier_deliveries_raw
+    keys: [delivery_id]
+    group: reference
+
+  # --------------------------------------------------------------- files ---
+  product_catalog_feed:
+    type: file
+    format: csv
+    landing: product_catalog
+    target: bronze.product_catalog_raw
+    keys: [product_id]
+    group: catalog
+  supplier_feed:
+    type: file
+    format: json
+    landing: suppliers
+    target: bronze.suppliers_raw
+    keys: [supplier_id]
+    group: reference
+  historical_orders:
+    type: file
+    format: parquet
+    landing: historical_orders/orders
+    target: bronze.historical_orders_raw
+    keys: [order_id]
+    group: history
+  historical_order_items:
+    type: file
+    format: csv
+    landing: historical_orders/order_items
+    target: bronze.historical_order_items_raw
+    keys: [order_item_id]
+    group: history
+  historical_payments:
+    type: file
+    format: parquet
+    landing: historical_orders/payments
+    target: bronze.historical_payments_raw
+    keys: [payment_id]
+    group: history
+
+  # ---------------------------------------------------------------- REST ---
+  fx_rates:
+    type: rest
+    endpoint: /v1/fx-rates
+    landing: api/fx_rates
+    target: bronze.exchange_rates_raw
+    keys: [rate_date, currency_code]
+    group: fx
+  marketing_campaigns:
+    type: rest
+    endpoint: /v1/campaigns
+    landing: api/marketing_campaigns
+    target: bronze.marketing_campaigns_raw
+    keys: [campaign_id, spend_date]
+    group: marketing
+
+rest:
+  base_url: ${REFERENCE_API_URL:-http://localhost:8090}
+  api_key: ${REFERENCE_API_KEY:-local-dev-key}
+  timeout_seconds: 15
+  max_retries: 5

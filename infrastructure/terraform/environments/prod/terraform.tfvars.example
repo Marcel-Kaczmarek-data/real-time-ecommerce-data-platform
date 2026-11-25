@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars (git-ignored) and adjust. Never commit real account ids or e-mails.
+aws_region               = "eu-central-1"
+owner                    = "data-platform-team"
+alert_email              = ""            # e.g. "data-alerts@example.com"
+monthly_budget_usd       = 1500
+enable_databricks        = true
+databricks_account_id    = ""            # set via TF_VAR_databricks_account_id instead of this file
+ingestion_principal_arns = []

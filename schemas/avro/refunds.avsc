@@ -1,0 +1,107 @@
+{
+  "type": "record",
+  "name": "RefundsEvent",
+  "namespace": "com.ecommerce.events",
+  "doc": "Standard event envelope carrying a refunds payload. Allowed event_type values: refund_issued",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Globally unique event id (UUID)"
+    },
+    {
+      "name": "event_type",
+      "type": "string",
+      "doc": "Business event name"
+    },
+    {
+      "name": "event_version",
+      "type": "int",
+      "doc": "Payload contract version"
+    },
+    {
+      "name": "event_timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Business event time (UTC)"
+    },
+    {
+      "name": "source_system",
+      "type": "string",
+      "doc": "Emitting system"
+    },
+    {
+      "name": "correlation_id",
+      "type": "string",
+      "doc": "Journey / order correlation id"
+    },
+    {
+      "name": "payload",
+      "type": {
+        "type": "record",
+        "name": "RefundsPayload",
+        "fields": [
+          {
+            "name": "refund_id",
+            "doc": "Business key",
+            "type": "string"
+          },
+          {
+            "name": "order_id",
+            "doc": "FK orders",
+            "type": "string"
+          },
+          {
+            "name": "payment_id",
+            "doc": "Refunded payment",
+            "type": "string"
+          },
+          {
+            "name": "return_id",
+            "doc": "Related return",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "refund_amount",
+            "doc": "Gross refund incl. tax",
+            "type": "double"
+          },
+          {
+            "name": "refund_tax_amount",
+            "doc": "Tax portion of the refund",
+            "type": "double"
+          },
+          {
+            "name": "currency",
+            "doc": "ISO 4217",
+            "type": "string"
+          },
+          {
+            "name": "refund_reason",
+            "doc": "order_cancelled | product_return",
+            "type": "string"
+          },
+          {
+            "name": "refund_status",
+            "doc": "completed",
+            "type": "string"
+          },
+          {
+            "name": "refund_timestamp",
+            "doc": "UTC",
+            "type": {
+              "type": "long",
+              "logicalType": "timestamp-millis"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+# Bronze checks: ingestion health. Bronze keeps duplicates by design, so the
+# duplicate rate is monitored (informational / warning), not enforced.
+suite: bronze
+owner: data-platform-team
+checks:
+  - {name: bronze_orders_duplicate_event_rate, table: bronze.orders_events, type: duplicate_rate, columns: [event_id],
+     max_failure_rate: 0.01, severity: warning}
+  - {name: bronze_clickstream_duplicate_event_rate, table: bronze.clickstream_events, type: duplicate_rate,
+     columns: [event_id], max_failure_rate: 0.01, severity: warning}
+  - {name: bronze_payments_duplicate_event_rate, table: bronze.payments_events, type: duplicate_rate,
+     columns: [event_id], max_failure_rate: 0.01, severity: warning}
+  - {name: bronze_orders_envelope_complete, table: bronze.orders_events, type: not_null, severity: critical,
+     columns: [event_id, event_type, event_timestamp, raw_payload, kafka_offset]}
+  - {name: bronze_clickstream_freshness, table: bronze.clickstream_events, type: freshness, column: ingestion_timestamp,
+     max_age_hours: 2, severity: warning}
+  - {name: bronze_orders_freshness, table: bronze.orders_events, type: freshness, column: ingestion_timestamp,
+     max_age_hours: 2, severity: warning}
+  - {name: bronze_corrupt_events, table: quarantine.bronze_corrupt_events, type: row_count, min_rows: 0,
+     max_rows: 100, severity: warning}
+  - {name: silver_rejects_volume, table: quarantine.silver_rejects, type: row_count, min_rows: 0, max_rows: 5000,
+     severity: informational}
+  - {name: bronze_orders_kafka_offsets_unique, table: bronze.orders_events, type: unique,
+     columns: [kafka_partition, kafka_offset], severity: critical}

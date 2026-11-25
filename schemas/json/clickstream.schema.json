@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ecommerce.example/clickstream.schema.json",
+  "title": "ClickstreamEvent",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "event_version",
+    "event_timestamp",
+    "source_system",
+    "correlation_id",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "enum": [
+        "page_view",
+        "search",
+        "product_view",
+        "add_to_cart",
+        "remove_from_cart",
+        "checkout_started",
+        "purchase"
+      ]
+    },
+    "event_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_system": {
+      "type": "string"
+    },
+    "correlation_id": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "anonymous_id",
+        "session_id",
+        "event_type",
+        "event_timestamp",
+        "device_type",
+        "browser",
+        "traffic_source",
+        "country",
+        "page_url",
+        "sales_channel"
+      ],
+      "properties": {
+        "customer_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Known customer (logged in)"
+        },
+        "anonymous_id": {
+          "type": "string",
+          "description": "Cookie / device id"
+        },
+        "session_id": {
+          "type": "string",
+          "description": "Session id"
+        },
+        "event_type": {
+          "type": "string",
+          "description": "page_view | search | product_view | add_to_cart | remove_from_cart | checkout_started | purchase"
+        },
+        "product_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Product context"
+        },
+        "event_timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Client event time (UTC)"
+        },
+        "device_type": {
+          "type": "string",
+          "description": "mobile | desktop | tablet"
+        },
+        "browser": {
+          "type": "string",
+          "description": "Browser family"
+        },
+        "traffic_source": {
+          "type": "string",
+          "description": "Acquisition channel"
+        },
+        "country": {
+          "type": "string",
+          "description": "Geo-IP country"
+        },
+        "page_url": {
+          "type": "string",
+          "description": "Relative URL"
+        },
+        "search_query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Search terms"
+        },
+        "cart_quantity": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Quantity added/removed"
+        },
+        "campaign_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Paid campaign"
+        },
+        "sales_channel": {
+          "type": "string",
+          "description": "web | mobile_app | social_commerce"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

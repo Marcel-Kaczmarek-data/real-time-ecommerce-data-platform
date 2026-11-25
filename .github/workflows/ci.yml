@@ -1,0 +1,158 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  lint:
+    name: Lint, format, types, SQL
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Ruff lint
+        run: ruff check --output-format=github .
+      - name: Ruff format
+        run: ruff format --check .
+      - name: Mypy
+        run: mypy data_generator ingestion pipelines data_quality serving schemas
+      - name: SQL lint (marts)
+        run: sqlfluff lint data_models/marts --dialect sparksql
+      - name: Event contracts are up to date
+        run: |
+          python -m schemas.contracts
+          git diff --exit-code schemas/
+      - name: Grafana dashboards are up to date
+        run: |
+          python monitoring/grafana/build_dashboards.py
+          git diff --exit-code monitoring/grafana/dashboards/
+
+  unit-tests:
+    name: Unit + Spark tests (coverage)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: pip install -r requirements-dev.txt
+      - name: Install Delta / Kafka / S3A jars into PySpark
+        run: bash docker/common/fetch_spark_jars.sh
+      - name: Pytest
+        run: >
+          pytest tests/unit tests/data_quality -q
+          --cov --cov-report=xml --cov-report=term-missing:skip-covered
+          --junitxml=pytest-unit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-reports
+          path: |
+            coverage.xml
+            pytest-unit.xml
+
+  airflow-dags:
+    name: Airflow DAG validation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install Airflow 2.10.5 (official constraints)
+        run: |
+          pip install "apache-airflow==2.10.5" pytest \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt"
+      - name: Validate DAGs
+        env:
+          AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+          AIRFLOW__CORE__UNIT_TEST_MODE: "true"
+        run: |
+          airflow db migrate
+          PYTHONPATH=orchestration/dags pytest tests/integration/test_airflow_dags.py -q
+
+  terraform:
+    name: Terraform fmt + validate
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        environment: [dev, prod]
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/environments/${{ matrix.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+      - run: terraform fmt -check -recursive ../../
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        image:
+          - {name: platform, dockerfile: docker/platform/Dockerfile}
+          - {name: airflow, dockerfile: docker/airflow/Dockerfile}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.image.dockerfile }}
+          push: false
+          tags: ecom-${{ matrix.image.name }}:ci
+          cache-from: type=gha,scope=${{ matrix.image.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}
+      - name: Validate docker-compose file
+        run: cp .env.example .env && docker compose config -q
+
+  security:
+    name: Dependency + secret scanning
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: pip-audit (known CVEs in pinned dependencies)
+        run: |
+          pip install pip-audit==2.7.3
+          pip-audit -r requirements.txt --progress-spinner off
+      - name: Gitleaks (committed secrets)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Bandit-style rules via ruff (S)
+        run: pip install ruff==0.9.4 && ruff check --select S .

@@ -1,0 +1,52 @@
+# Databricks Asset Bundle - deploys the SAME pipeline modules used locally as Databricks jobs.
+#
+#   databricks bundle validate -t dev
+#   databricks bundle deploy   -t dev       # uploads code + creates/updates jobs (no runs started)
+#   databricks bundle run medallion_batch -t dev
+#
+# Prerequisites: Unity Catalog catalog/schemas + storage credential (infrastructure/terraform,
+# enable_databricks = true) and a secret scope `ecom-platform` with kafka-api-key / kafka-api-secret.
+bundle:
+  name: ecom-data-platform
+
+include:
+  - resources/*.yml
+
+sync:
+  include:
+    - ../../config/**
+    - ../../data_generator/**
+    - ../../data_models/**
+    - ../../data_quality/**
+    - ../../ingestion/**
+    - ../../pipelines/**
+    - ../../schemas/**
+
+variables:
+  catalog:
+    description: Unity Catalog catalog holding bronze/silver/gold/audit/quarantine schemas
+  lakehouse_bucket:
+    description: S3 bucket for checkpoints (Unity Catalog external location)
+  cluster_policy_id:
+    description: Cluster policy created by Terraform (modules/databricks_uc)
+    default: ""
+  node_type:
+    default: m6gd.large
+  alert_email:
+    default: ""
+
+targets:
+  dev:
+    mode: development
+    default: true
+    variables:
+      catalog: ecommerce_dev
+      lakehouse_bucket: ecom-dp-dev-lakehouse
+  prod:
+    mode: production
+    variables:
+      catalog: ecommerce_prod
+      lakehouse_bucket: ecom-dp-prod-lakehouse
+      node_type: m6gd.xlarge
+    run_as:
+      service_principal_name: ecom-data-platform-sp

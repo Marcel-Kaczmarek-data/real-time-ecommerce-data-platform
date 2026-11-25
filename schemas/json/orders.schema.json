@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ecommerce.example/orders.schema.json",
+  "title": "OrdersEvent",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "event_version",
+    "event_timestamp",
+    "source_system",
+    "correlation_id",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "enum": [
+        "order_created",
+        "order_confirmed",
+        "order_cancelled",
+        "order_shipped",
+        "order_delivered",
+        "order_returned"
+      ]
+    },
+    "event_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_system": {
+      "type": "string"
+    },
+    "correlation_id": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "order_id",
+        "customer_id",
+        "order_timestamp",
+        "order_status",
+        "sales_channel",
+        "currency",
+        "subtotal_amount",
+        "discount_amount",
+        "shipping_amount",
+        "tax_amount",
+        "total_amount",
+        "country",
+        "item_count"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "description": "Business key"
+        },
+        "customer_id": {
+          "type": "string",
+          "description": "FK customers"
+        },
+        "order_timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Order placement time (UTC)"
+        },
+        "order_status": {
+          "type": "string",
+          "description": "created | confirmed | cancelled | shipped | delivered | returned"
+        },
+        "status_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Reason for cancellation"
+        },
+        "sales_channel": {
+          "type": "string",
+          "description": "web | mobile_app | marketplace | social_commerce"
+        },
+        "currency": {
+          "type": "string",
+          "description": "ISO 4217"
+        },
+        "subtotal_amount": {
+          "type": "number",
+          "description": "Sum of quantity * unit_price"
+        },
+        "discount_amount": {
+          "type": "number",
+          "description": "Promotion discount"
+        },
+        "shipping_amount": {
+          "type": "number",
+          "description": "Shipping fee"
+        },
+        "tax_amount": {
+          "type": "number",
+          "description": "VAT / sales tax"
+        },
+        "total_amount": {
+          "type": "number",
+          "description": "subtotal - discount + shipping + tax"
+        },
+        "promotion_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Applied promotion"
+        },
+        "country": {
+          "type": "string",
+          "description": "Ship-to country"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Web/app session that produced the order"
+        },
+        "item_count": {
+          "type": "integer",
+          "description": "Units in the order"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

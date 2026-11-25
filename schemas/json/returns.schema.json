@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ecommerce.example/returns.schema.json",
+  "title": "ReturnsEvent",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "event_version",
+    "event_timestamp",
+    "source_system",
+    "correlation_id",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "enum": [
+        "return_requested",
+        "return_received"
+      ]
+    },
+    "event_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_system": {
+      "type": "string"
+    },
+    "correlation_id": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "return_id",
+        "order_id",
+        "order_item_id",
+        "product_id",
+        "quantity",
+        "return_reason",
+        "return_status",
+        "requested_at",
+        "warehouse_id"
+      ],
+      "properties": {
+        "return_id": {
+          "type": "string",
+          "description": "Business key"
+        },
+        "order_id": {
+          "type": "string",
+          "description": "FK orders"
+        },
+        "order_item_id": {
+          "type": "string",
+          "description": "FK order items"
+        },
+        "product_id": {
+          "type": "string",
+          "description": "FK products"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "Returned units"
+        },
+        "return_reason": {
+          "type": "string",
+          "description": "Customer stated reason"
+        },
+        "return_status": {
+          "type": "string",
+          "description": "requested | received"
+        },
+        "requested_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "UTC"
+        },
+        "received_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "UTC"
+        },
+        "warehouse_id": {
+          "type": "string",
+          "description": "Receiving warehouse"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

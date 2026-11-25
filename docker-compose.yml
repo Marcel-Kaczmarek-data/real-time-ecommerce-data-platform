@@ -1,0 +1,508 @@
+# Real-Time E-Commerce Data Platform - local deployment
+#
+# Profiles:
+#   (none)         core: kafka, schema-registry, postgres, object-storage (S3) + init jobs
+#   processing     spark-streaming (Bronze stream + RT aggregate), event-producer
+#   orchestration  airflow-init, airflow-webserver, airflow-scheduler
+#   dashboard      streamlit
+#   monitoring     prometheus, pushgateway, kafka-exporter, statsd-exporter, cadvisor, grafana
+#   cdc            kafka-connect (Debezium PostgreSQL CDC)
+#   tools          platform (one-shot job runner: `docker compose run --rm platform ...`)
+#
+# Credentials below are LOCAL DEFAULTS for disposable containers only.
+
+name: ecom-platform
+
+x-env-file: &env-file
+  env_file:
+    - path: .env
+      required: false
+
+x-platform-env: &platform-env
+  # Internal traffic must never go through a corporate/host HTTP proxy.
+  NO_PROXY: localhost,127.0.0.1,kafka,schema-registry,object-storage,postgres,reference-api,pushgateway,prometheus,grafana,airflow-webserver
+  no_proxy: localhost,127.0.0.1,kafka,schema-registry,object-storage,postgres,reference-api,pushgateway,prometheus,grafana,airflow-webserver
+  PLATFORM_ENV: local
+  PLATFORM_SCALE: ${PLATFORM_SCALE:-lite}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  SCHEMA_REGISTRY_URL: http://schema-registry:8081
+  S3_ENDPOINT_URL: http://object-storage:9000
+  AWS_REGION: us-east-1
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-localdev}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-localdev-secret}
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: ${POSTGRES_DB:-ecommerce}
+  POSTGRES_USER: ${POSTGRES_USER:-ecommerce}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecommerce}
+  PUSHGATEWAY_URL: http://pushgateway:9091
+  PII_HASH_SALT: ${PII_HASH_SALT:-local-dev-salt}
+  REFERENCE_API_URL: http://reference-api:8000
+  REFERENCE_API_KEY: ${REFERENCE_API_KEY:-local-dev-key}
+  SPARK_MASTER: ${SPARK_MASTER:-local[*]}
+  SPARK_DRIVER_MEMORY: ${SPARK_DRIVER_MEMORY:-2g}
+  SPARK_SHUFFLE_PARTITIONS: ${SPARK_SHUFFLE_PARTITIONS:-8}
+
+x-platform: &platform
+  image: ecom-platform:dev
+  build:
+    context: .
+    dockerfile: docker/platform/Dockerfile
+  <<: *env-file
+  environment:
+    <<: *platform-env
+  volumes:
+    - ./:/opt/platform
+    - spark-checkpoints:/opt/checkpoints
+  networks: [ecom-net]
+
+x-airflow: &airflow
+  image: ecom-airflow:dev
+  build:
+    context: .
+    dockerfile: docker/airflow/Dockerfile
+  <<: *env-file
+  environment:
+    <<: *platform-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__PARALLELISM: "4"
+    AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: "3"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/platform/orchestration/dags
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-ecommerce}:${POSTGRES_PASSWORD:-ecommerce}@postgres:5432/airflow
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-local-dev-secret}
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "false"
+    AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "60"
+    AIRFLOW__METRICS__STATSD_ON: "true"
+    AIRFLOW__METRICS__STATSD_HOST: statsd-exporter
+    AIRFLOW__METRICS__STATSD_PORT: "9125"
+    AIRFLOW__METRICS__STATSD_PREFIX: airflow
+    AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+    SPARK_MASTER: local[2]
+    PYTHONPATH: /opt/platform
+  volumes:
+    - ./:/opt/platform
+    - airflow-logs:/opt/airflow/logs
+    - spark-checkpoints:/opt/checkpoints
+  user: "${AIRFLOW_UID:-50000}:0"
+  networks: [ecom-net]
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  # --------------------------------------------------------------- core -----
+  kafka:
+    image: confluentinc/cp-kafka:7.8.0
+    hostname: kafka
+    container_name: ecom-kafka
+    ports: ["9092:9092"]
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_MESSAGE_MAX_BYTES: 2097152
+      KAFKA_HEAP_OPTS: -Xms512m -Xmx1g
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server kafka:29092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+    networks: [ecom-net]
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.8.0
+    hostname: schema-registry
+    container_name: ecom-schema-registry
+    ports: ["8081:8081"]
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: backward
+      SCHEMA_REGISTRY_HEAP_OPTS: -Xms256m -Xmx512m
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/subjects > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+    networks: [ecom-net]
+
+  postgres:
+    image: postgres:16.6
+    hostname: postgres
+    container_name: ecom-postgres
+    ports: ["${POSTGRES_HOST_PORT:-5433}:5432"]
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=4", "-c", "max_wal_senders=4", "-c", "shared_buffers=256MB"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ecommerce}
+      POSTGRES_USER: ${POSTGRES_USER:-ecommerce}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecommerce}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - ./sql/ddl:/sql/ddl:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks: [ecom-net]
+
+  object-storage:
+    # S3-compatible object store (SeaweedFS). MinIO community images/binaries
+    # were withdrawn in 2025 - see docs/adr/0011-object-storage-seaweedfs.md.
+    image: chrislusf/seaweedfs:3.85
+    hostname: object-storage
+    container_name: ecom-object-storage
+    ports: ["9000:9000", "8888:8888"]
+    entrypoint: ["/bin/sh", "/scripts/entrypoint.sh"]
+    environment:
+      S3_ACCESS_KEY: ${AWS_ACCESS_KEY_ID:-localdev}
+      S3_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY:-localdev-secret}
+    volumes:
+      - ./docker/object-storage:/scripts:ro
+      - object-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9333/cluster/status > /dev/null && nc -z localhost 9000"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+    networks: [ecom-net]
+
+  storage-init:
+    image: chrislusf/seaweedfs:3.85
+    container_name: ecom-storage-init
+    entrypoint: ["/bin/sh", "-c", "chmod 0777 /opt/checkpoints && /bin/sh /scripts/init-buckets.sh"]
+    volumes:
+      - ./docker/object-storage:/scripts:ro
+      - spark-checkpoints:/opt/checkpoints
+    depends_on:
+      object-storage:
+        condition: service_healthy
+    networks: [ecom-net]
+
+  reference-api:
+    <<: *platform
+    container_name: ecom-reference-api
+    command: ["python", "-m", "ingestion.batch.reference_api"]
+    ports: ["${REFERENCE_API_HOST_PORT:-8090}:8000"]
+    environment:
+      <<: *platform-env
+      REFERENCE_API_PORT: "8000"
+      REFERENCE_API_KEY: ${REFERENCE_API_KEY:-local-dev-key}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  kafka-init:
+    <<: *platform
+    container_name: ecom-kafka-init
+    command: ["python", "-m", "ingestion.kafka_producers.admin", "bootstrap"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    restart: "no"
+
+  # --------------------------------------------------------- processing -----
+  spark-streaming:
+    <<: *platform
+    container_name: ecom-spark-streaming
+    profiles: ["processing"]
+    command: ["python", "-m", "pipelines.bronze.stream_kafka_to_bronze"]
+    ports: ["4040:4040", "8001:8001"]
+    environment:
+      <<: *platform-env
+      SPARK_MASTER: local[4]
+      SPARK_DRIVER_MEMORY: 3g
+      STREAM_METRICS_PORT: "8001"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      storage-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8001/metrics > /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+  event-producer:
+    <<: *platform
+    container_name: ecom-event-producer
+    profiles: ["processing"]
+    command: ["python", "-m", "ingestion.kafka_producers.run", "live", "--events-per-second", "${GENERATOR_EVENTS_PER_SECOND:-500}", "--sync-ops-db"]
+    ports: ["8000:8000"]
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/metrics > /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  platform:
+    <<: *platform
+    container_name: ecom-platform-tools
+    profiles: ["tools"]
+    command: ["bash"]
+    stdin_open: true
+    tty: true
+
+  # ------------------------------------------------------ orchestration -----
+  airflow-init:
+    <<: *airflow
+    container_name: ecom-airflow-init
+    profiles: ["orchestration"]
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate &&
+        airflow users create --role Admin --username "$${AIRFLOW_ADMIN_USER:-admin}" \
+          --password "$${AIRFLOW_ADMIN_PASSWORD:-admin}" --firstname Platform --lastname Admin \
+          --email admin@example.com || true &&
+        airflow pools set spark_jobs 2 "Serialises Spark jobs (single-writer Delta on S3)" &&
+        airflow variables set platform_env local
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow
+    container_name: ecom-airflow-webserver
+    profiles: ["orchestration"]
+    command: webserver
+    ports: ["${AIRFLOW_WEB_PORT:-8088}:8080"]
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health > /dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  airflow-scheduler:
+    <<: *airflow
+    container_name: ecom-airflow-scheduler
+    profiles: ["orchestration"]
+    command: scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8974/health > /dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    environment:
+      <<: *platform-env
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__PARALLELISM: "4"
+      AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: "3"
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/platform/orchestration/dags
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-}
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-ecommerce}:${POSTGRES_PASSWORD:-ecommerce}@postgres:5432/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-local-dev-secret}
+      AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+      AIRFLOW__METRICS__STATSD_ON: "true"
+      AIRFLOW__METRICS__STATSD_HOST: statsd-exporter
+      AIRFLOW__METRICS__STATSD_PORT: "9125"
+      AIRFLOW__METRICS__STATSD_PREFIX: airflow
+      SPARK_MASTER: local[2]
+      SPARK_DRIVER_MEMORY: 2g
+      PYTHONPATH: /opt/platform
+    restart: unless-stopped
+
+  # ---------------------------------------------------------- dashboard -----
+  streamlit:
+    <<: *platform
+    container_name: ecom-streamlit
+    profiles: ["dashboard"]
+    command: ["streamlit", "run", "dashboards/streamlit/app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true", "--browser.gatherUsageStats=false"]
+    ports: ["8501:8501"]
+    depends_on:
+      object-storage:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8501/_stcore/health > /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # --------------------------------------------------------- monitoring -----
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: ecom-prometheus
+    profiles: ["monitoring"]
+    ports: ["9090:9090"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy > /dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: [ecom-net]
+
+  pushgateway:
+    image: prom/pushgateway:v1.11.0
+    container_name: ecom-pushgateway
+    profiles: ["monitoring", "processing", "orchestration"]
+    ports: ["9091:9091"]
+    restart: unless-stopped
+    networks: [ecom-net]
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.8.0
+    container_name: ecom-kafka-exporter
+    profiles: ["monitoring"]
+    command: ["--kafka.server=kafka:29092", "--topic.filter=^ecommerce\\..*", "--group.filter=.*"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [ecom-net]
+
+  statsd-exporter:
+    image: prom/statsd-exporter:v0.28.0
+    container_name: ecom-statsd-exporter
+    profiles: ["monitoring", "orchestration"]
+    command: ["--statsd.mapping-config=/etc/statsd/statsd-mapping.yml"]
+    volumes:
+      - ./monitoring/prometheus/statsd-mapping.yml:/etc/statsd/statsd-mapping.yml:ro
+    restart: unless-stopped
+    networks: [ecom-net]
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: ecom-cadvisor
+    profiles: ["monitoring"]
+    privileged: true
+    command: ["--docker_only=true", "--housekeeping_interval=15s", "--store_container_labels=false", "--whitelisted_container_labels=com.docker.compose.service"]
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    restart: unless-stopped
+    networks: [ecom-net]
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: ecom-grafana
+    profiles: ["monitoring"]
+    ports: ["${GRAFANA_HOST_PORT:-3001}:3000"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/lakehouse-ingestion.json
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks: [ecom-net]
+
+  # ---------------------------------------------------------------- cdc -----
+  kafka-connect:
+    image: quay.io/debezium/connect:2.7.3.Final
+    container_name: ecom-kafka-connect
+    profiles: ["cdc"]
+    ports: ["8083:8083"]
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: ecom-connect
+      CONFIG_STORAGE_TOPIC: _connect-configs
+      OFFSET_STORAGE_TOPIC: _connect-offsets
+      STATUS_STORAGE_TOPIC: _connect-status
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      # Resolve ${env:...} placeholders in connector configs (no credentials in connector JSON).
+      CONNECT_CONFIG_PROVIDERS: env
+      CONNECT_CONFIG_PROVIDERS_ENV_CLASS: org.apache.kafka.common.config.provider.EnvVarConfigProvider
+      POSTGRES_USER: ${POSTGRES_USER:-ecommerce}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecommerce}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/connectors > /dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks: [ecom-net]
+
+networks:
+  ecom-net:
+    name: ecom-net
+
+volumes:
+  kafka-data:
+  spark-checkpoints:
+  pg-data:
+  object-data:
+  prometheus-data:
+  grafana-data:
+  airflow-logs:

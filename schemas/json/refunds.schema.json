@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ecommerce.example/refunds.schema.json",
+  "title": "RefundsEvent",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "event_version",
+    "event_timestamp",
+    "source_system",
+    "correlation_id",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "enum": [
+        "refund_issued"
+      ]
+    },
+    "event_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_system": {
+      "type": "string"
+    },
+    "correlation_id": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "refund_id",
+        "order_id",
+        "payment_id",
+        "refund_amount",
+        "refund_tax_amount",
+        "currency",
+        "refund_reason",
+        "refund_status",
+        "refund_timestamp"
+      ],
+      "properties": {
+        "refund_id": {
+          "type": "string",
+          "description": "Business key"
+        },
+        "order_id": {
+          "type": "string",
+          "description": "FK orders"
+        },
+        "payment_id": {
+          "type": "string",
+          "description": "Refunded payment"
+        },
+        "return_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Related return"
+        },
+        "refund_amount": {
+          "type": "number",
+          "description": "Gross refund incl. tax"
+        },
+        "refund_tax_amount": {
+          "type": "number",
+          "description": "Tax portion of the refund"
+        },
+        "currency": {
+          "type": "string",
+          "description": "ISO 4217"
+        },
+        "refund_reason": {
+          "type": "string",
+          "description": "order_cancelled | product_return"
+        },
+        "refund_status": {
+          "type": "string",
+          "description": "completed"
+        },
+        "refund_timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "UTC"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

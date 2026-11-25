@@ -1,0 +1,43 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    platform: ecommerce-data-platform
+    environment: local
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs: [{targets: ["localhost:9090"]}]
+
+  # Batch jobs (Silver, Gold, DQ, ingestion, maintenance) push their run metrics here.
+  - job_name: pushgateway
+    honor_labels: true
+    static_configs: [{targets: ["pushgateway:9091"]}]
+
+  # Kafka broker / topic / consumer-group metrics.
+  - job_name: kafka
+    static_configs: [{targets: ["kafka-exporter:9308"]}]
+
+  # Long-running services exposing /metrics.
+  - job_name: event-producer
+    static_configs: [{targets: ["event-producer:8000"]}]
+  - job_name: spark-streaming
+    static_configs: [{targets: ["spark-streaming:8001"]}]
+
+  # Airflow (statsd -> statsd-exporter).
+  - job_name: airflow
+    static_configs: [{targets: ["statsd-exporter:9102"]}]
+
+  # Container CPU / memory / filesystem.
+  - job_name: cadvisor
+    static_configs: [{targets: ["cadvisor:8080"]}]
+    metric_relabel_configs:
+      - source_labels: [container_label_com_docker_compose_service]
+        target_label: service
+
+  # Object storage (SeaweedFS).
+  - job_name: object-storage
+    static_configs: [{targets: ["object-storage:9324"]}]

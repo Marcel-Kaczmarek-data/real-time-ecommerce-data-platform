@@ -1,0 +1,31 @@
+country_code,country_name,region,currency_code,vat_rate,timezone
+US,United States,North America,USD,0.07,America/New_York
+CA,Canada,North America,CAD,0.13,America/Toronto
+MX,Mexico,Latin America,MXN,0.16,America/Mexico_City
+BR,Brazil,Latin America,BRL,0.17,America/Sao_Paulo
+GB,United Kingdom,Europe,GBP,0.2,Europe/London
+IE,Ireland,Europe,EUR,0.23,Europe/Dublin
+FR,France,Europe,EUR,0.2,Europe/Paris
+DE,Germany,Europe,EUR,0.19,Europe/Berlin
+ES,Spain,Europe,EUR,0.21,Europe/Madrid
+IT,Italy,Europe,EUR,0.22,Europe/Rome
+NL,Netherlands,Europe,EUR,0.21,Europe/Amsterdam
+BE,Belgium,Europe,EUR,0.21,Europe/Brussels
+AT,Austria,Europe,EUR,0.2,Europe/Vienna
+PT,Portugal,Europe,EUR,0.23,Europe/Lisbon
+SE,Sweden,Europe,SEK,0.25,Europe/Stockholm
+DK,Denmark,Europe,DKK,0.25,Europe/Copenhagen
+NO,Norway,Europe,NOK,0.25,Europe/Oslo
+FI,Finland,Europe,EUR,0.24,Europe/Helsinki
+PL,Poland,Europe,PLN,0.23,Europe/Warsaw
+CZ,Czechia,Europe,CZK,0.21,Europe/Prague
+CH,Switzerland,Europe,CHF,0.081,Europe/Zurich
+JP,Japan,Asia Pacific,JPY,0.1,Asia/Tokyo
+KR,South Korea,Asia Pacific,KRW,0.1,Asia/Seoul
+IN,India,Asia Pacific,INR,0.18,Asia/Kolkata
+SG,Singapore,Asia Pacific,SGD,0.09,Asia/Singapore
+AU,Australia,Asia Pacific,AUD,0.1,Australia/Sydney
+NZ,New Zealand,Asia Pacific,NZD,0.15,Pacific/Auckland
+ZA,South Africa,Middle East & Africa,ZAR,0.15,Africa/Johannesburg
+AE,United Arab Emirates,Middle East & Africa,AED,0.05,Asia/Dubai
+TR,Turkey,Middle East & Africa,TRY,0.2,Europe/Istanbul

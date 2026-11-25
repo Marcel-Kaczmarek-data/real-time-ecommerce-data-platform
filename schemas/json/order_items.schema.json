@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ecommerce.example/order_items.schema.json",
+  "title": "OrderItemsEvent",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "event_version",
+    "event_timestamp",
+    "source_system",
+    "correlation_id",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "enum": [
+        "order_item_added"
+      ]
+    },
+    "event_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_system": {
+      "type": "string"
+    },
+    "correlation_id": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "order_item_id",
+        "order_id",
+        "product_id",
+        "quantity",
+        "unit_price",
+        "discount_amount",
+        "currency",
+        "line_number"
+      ],
+      "properties": {
+        "order_item_id": {
+          "type": "string",
+          "description": "Business key"
+        },
+        "order_id": {
+          "type": "string",
+          "description": "FK orders"
+        },
+        "product_id": {
+          "type": "string",
+          "description": "FK products"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "Units"
+        },
+        "unit_price": {
+          "type": "number",
+          "description": "Localised unit price"
+        },
+        "discount_amount": {
+          "type": "number",
+          "description": "Line discount"
+        },
+        "currency": {
+          "type": "string",
+          "description": "ISO 4217"
+        },
+        "line_number": {
+          "type": "integer",
+          "description": "1-based line number"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

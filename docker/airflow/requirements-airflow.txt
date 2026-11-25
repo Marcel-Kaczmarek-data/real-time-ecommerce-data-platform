@@ -1,0 +1,19 @@
+# Subset of requirements.txt needed inside Airflow workers. Same pins; the
+# Airflow constraint file enforces identical versions for shared packages.
+pyspark==3.5.4
+delta-spark==3.3.0
+deltalake==0.24.0
+pyarrow==16.1.0
+pandas==2.1.4
+numpy==1.26.4
+confluent-kafka[avro,schemaregistry]==2.8.0
+fastavro==1.10.0
+requests==2.32.3
+Faker==33.3.1
+boto3==1.36.3
+psycopg2-binary==2.9.10
+PyYAML==6.0.2
+pydantic==2.10.6
+tenacity==9.0.0
+prometheus-client==0.21.1
+psutil==6.1.1

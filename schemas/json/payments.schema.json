@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ecommerce.example/payments.schema.json",
+  "title": "PaymentsEvent",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "event_version",
+    "event_timestamp",
+    "source_system",
+    "correlation_id",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "enum": [
+        "payment_authorized",
+        "payment_captured",
+        "payment_failed"
+      ]
+    },
+    "event_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_system": {
+      "type": "string"
+    },
+    "correlation_id": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "payment_id",
+        "order_id",
+        "payment_method",
+        "payment_status",
+        "payment_amount",
+        "currency",
+        "payment_timestamp",
+        "attempt_number",
+        "provider"
+      ],
+      "properties": {
+        "payment_id": {
+          "type": "string",
+          "description": "Business key (one per attempt)"
+        },
+        "order_id": {
+          "type": "string",
+          "description": "FK orders"
+        },
+        "payment_method": {
+          "type": "string",
+          "description": "credit_card | debit_card | paypal | ..."
+        },
+        "payment_status": {
+          "type": "string",
+          "description": "authorized | captured | failed"
+        },
+        "payment_amount": {
+          "type": "number",
+          "description": "Amount in order currency"
+        },
+        "currency": {
+          "type": "string",
+          "description": "ISO 4217"
+        },
+        "payment_timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "UTC"
+        },
+        "attempt_number": {
+          "type": "integer",
+          "description": "1 = first attempt"
+        },
+        "failure_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Gateway decline reason"
+        },
+        "provider": {
+          "type": "string",
+          "description": "Payment service provider"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

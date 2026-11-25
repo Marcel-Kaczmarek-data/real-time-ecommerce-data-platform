@@ -1,0 +1,110 @@
+{
+  "type": "record",
+  "name": "ReturnsEvent",
+  "namespace": "com.ecommerce.events",
+  "doc": "Standard event envelope carrying a returns payload. Allowed event_type values: return_requested, return_received",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Globally unique event id (UUID)"
+    },
+    {
+      "name": "event_type",
+      "type": "string",
+      "doc": "Business event name"
+    },
+    {
+      "name": "event_version",
+      "type": "int",
+      "doc": "Payload contract version"
+    },
+    {
+      "name": "event_timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Business event time (UTC)"
+    },
+    {
+      "name": "source_system",
+      "type": "string",
+      "doc": "Emitting system"
+    },
+    {
+      "name": "correlation_id",
+      "type": "string",
+      "doc": "Journey / order correlation id"
+    },
+    {
+      "name": "payload",
+      "type": {
+        "type": "record",
+        "name": "ReturnsPayload",
+        "fields": [
+          {
+            "name": "return_id",
+            "doc": "Business key",
+            "type": "string"
+          },
+          {
+            "name": "order_id",
+            "doc": "FK orders",
+            "type": "string"
+          },
+          {
+            "name": "order_item_id",
+            "doc": "FK order items",
+            "type": "string"
+          },
+          {
+            "name": "product_id",
+            "doc": "FK products",
+            "type": "string"
+          },
+          {
+            "name": "quantity",
+            "doc": "Returned units",
+            "type": "int"
+          },
+          {
+            "name": "return_reason",
+            "doc": "Customer stated reason",
+            "type": "string"
+          },
+          {
+            "name": "return_status",
+            "doc": "requested | received",
+            "type": "string"
+          },
+          {
+            "name": "requested_at",
+            "doc": "UTC",
+            "type": {
+              "type": "long",
+              "logicalType": "timestamp-millis"
+            }
+          },
+          {
+            "name": "received_at",
+            "doc": "UTC",
+            "type": [
+              "null",
+              {
+                "type": "long",
+                "logicalType": "timestamp-millis"
+              }
+            ],
+            "default": null
+          },
+          {
+            "name": "warehouse_id",
+            "doc": "Receiving warehouse",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}

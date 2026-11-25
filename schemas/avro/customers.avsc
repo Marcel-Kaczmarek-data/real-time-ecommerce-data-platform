@@ -1,0 +1,106 @@
+{
+  "type": "record",
+  "name": "CustomersEvent",
+  "namespace": "com.ecommerce.events",
+  "doc": "Standard event envelope carrying a customers payload. Allowed event_type values: customer_registered, customer_profile_updated",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Globally unique event id (UUID)"
+    },
+    {
+      "name": "event_type",
+      "type": "string",
+      "doc": "Business event name"
+    },
+    {
+      "name": "event_version",
+      "type": "int",
+      "doc": "Payload contract version"
+    },
+    {
+      "name": "event_timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Business event time (UTC)"
+    },
+    {
+      "name": "source_system",
+      "type": "string",
+      "doc": "Emitting system"
+    },
+    {
+      "name": "correlation_id",
+      "type": "string",
+      "doc": "Journey / order correlation id"
+    },
+    {
+      "name": "payload",
+      "type": {
+        "type": "record",
+        "name": "CustomersPayload",
+        "fields": [
+          {
+            "name": "customer_id",
+            "doc": "Business key, CUST-nnnnnnn",
+            "type": "string"
+          },
+          {
+            "name": "first_name",
+            "doc": "PII - masked in Silver",
+            "type": "string"
+          },
+          {
+            "name": "last_name",
+            "doc": "PII - masked in Silver",
+            "type": "string"
+          },
+          {
+            "name": "email",
+            "doc": "PII - hashed/masked in Silver",
+            "type": "string"
+          },
+          {
+            "name": "country",
+            "doc": "ISO 3166-1 alpha-2",
+            "type": "string"
+          },
+          {
+            "name": "registration_date",
+            "doc": "UTC",
+            "type": {
+              "type": "long",
+              "logicalType": "timestamp-millis"
+            }
+          },
+          {
+            "name": "customer_segment",
+            "doc": "consumer | small_business | corporate",
+            "type": "string"
+          },
+          {
+            "name": "loyalty_status",
+            "doc": "none | bronze | silver | gold | platinum",
+            "type": "string"
+          },
+          {
+            "name": "marketing_opt_in",
+            "doc": "GDPR marketing consent",
+            "type": "boolean"
+          },
+          {
+            "name": "updated_at",
+            "doc": "Last change in the source system (UTC)",
+            "type": {
+              "type": "long",
+              "logicalType": "timestamp-millis"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

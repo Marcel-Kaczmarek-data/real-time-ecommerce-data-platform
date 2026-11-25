@@ -1,0 +1,145 @@
+{
+  "type": "record",
+  "name": "OrdersEvent",
+  "namespace": "com.ecommerce.events",
+  "doc": "Standard event envelope carrying a orders payload. Allowed event_type values: order_created, order_confirmed, order_cancelled, order_shipped, order_delivered, order_returned",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Globally unique event id (UUID)"
+    },
+    {
+      "name": "event_type",
+      "type": "string",
+      "doc": "Business event name"
+    },
+    {
+      "name": "event_version",
+      "type": "int",
+      "doc": "Payload contract version"
+    },
+    {
+      "name": "event_timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Business event time (UTC)"
+    },
+    {
+      "name": "source_system",
+      "type": "string",
+      "doc": "Emitting system"
+    },
+    {
+      "name": "correlation_id",
+      "type": "string",
+      "doc": "Journey / order correlation id"
+    },
+    {
+      "name": "payload",
+      "type": {
+        "type": "record",
+        "name": "OrdersPayload",
+        "fields": [
+          {
+            "name": "order_id",
+            "doc": "Business key",
+            "type": "string"
+          },
+          {
+            "name": "customer_id",
+            "doc": "FK customers",
+            "type": "string"
+          },
+          {
+            "name": "order_timestamp",
+            "doc": "Order placement time (UTC)",
+            "type": {
+              "type": "long",
+              "logicalType": "timestamp-millis"
+            }
+          },
+          {
+            "name": "order_status",
+            "doc": "created | confirmed | cancelled | shipped | delivered | returned",
+            "type": "string"
+          },
+          {
+            "name": "status_reason",
+            "doc": "Reason for cancellation",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "sales_channel",
+            "doc": "web | mobile_app | marketplace | social_commerce",
+            "type": "string"
+          },
+          {
+            "name": "currency",
+            "doc": "ISO 4217",
+            "type": "string"
+          },
+          {
+            "name": "subtotal_amount",
+            "doc": "Sum of quantity * unit_price",
+            "type": "double"
+          },
+          {
+            "name": "discount_amount",
+            "doc": "Promotion discount",
+            "type": "double"
+          },
+          {
+            "name": "shipping_amount",
+            "doc": "Shipping fee",
+            "type": "double"
+          },
+          {
+            "name": "tax_amount",
+            "doc": "VAT / sales tax",
+            "type": "double"
+          },
+          {
+            "name": "total_amount",
+            "doc": "subtotal - discount + shipping + tax",
+            "type": "double"
+          },
+          {
+            "name": "promotion_id",
+            "doc": "Applied promotion",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "country",
+            "doc": "Ship-to country",
+            "type": "string"
+          },
+          {
+            "name": "session_id",
+            "doc": "Web/app session that produced the order",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "item_count",
+            "doc": "Units in the order",
+            "type": "int"
+          }
+        ]
+      }
+    }
+  ]
+}

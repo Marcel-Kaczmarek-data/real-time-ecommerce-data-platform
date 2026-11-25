@@ -1,0 +1,21 @@
+warehouse_id,warehouse_name,country_code,city,capacity_units
+WH-01,Newark Fulfilment Centre,US,Newark,900000
+WH-02,Dallas Fulfilment Centre,US,Dallas,800000
+WH-03,Reno Fulfilment Centre,US,Reno,700000
+WH-04,Atlanta Fulfilment Centre,US,Atlanta,600000
+WH-05,Toronto Fulfilment Centre,CA,Toronto,300000
+WH-06,Monterrey Fulfilment Centre,MX,Monterrey,250000
+WH-07,Sao Paulo Fulfilment Centre,BR,Sao Paulo,300000
+WH-08,Coventry Fulfilment Centre,GB,Coventry,500000
+WH-09,Leipzig Fulfilment Centre,DE,Leipzig,600000
+WH-10,Dortmund Fulfilment Centre,DE,Dortmund,450000
+WH-11,Lyon Fulfilment Centre,FR,Lyon,350000
+WH-12,Zaragoza Fulfilment Centre,ES,Zaragoza,300000
+WH-13,Milan Fulfilment Centre,IT,Milan,280000
+WH-14,Venlo Fulfilment Centre,NL,Venlo,400000
+WH-15,Poznan Fulfilment Centre,PL,Poznan,380000
+WH-16,Gothenburg Fulfilment Centre,SE,Gothenburg,200000
+WH-17,Chiba Fulfilment Centre,JP,Chiba,350000
+WH-18,Bhiwandi Fulfilment Centre,IN,Bhiwandi,300000
+WH-19,Tuas Fulfilment Centre,SG,Tuas,220000
+WH-20,Sydney Fulfilment Centre,AU,Sydney,260000

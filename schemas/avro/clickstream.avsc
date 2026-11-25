@@ -1,0 +1,148 @@
+{
+  "type": "record",
+  "name": "ClickstreamEvent",
+  "namespace": "com.ecommerce.events",
+  "doc": "Standard event envelope carrying a clickstream payload. Allowed event_type values: page_view, search, product_view, add_to_cart, remove_from_cart, checkout_started, purchase",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Globally unique event id (UUID)"
+    },
+    {
+      "name": "event_type",
+      "type": "string",
+      "doc": "Business event name"
+    },
+    {
+      "name": "event_version",
+      "type": "int",
+      "doc": "Payload contract version"
+    },
+    {
+      "name": "event_timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Business event time (UTC)"
+    },
+    {
+      "name": "source_system",
+      "type": "string",
+      "doc": "Emitting system"
+    },
+    {
+      "name": "correlation_id",
+      "type": "string",
+      "doc": "Journey / order correlation id"
+    },
+    {
+      "name": "payload",
+      "type": {
+        "type": "record",
+        "name": "ClickstreamPayload",
+        "fields": [
+          {
+            "name": "customer_id",
+            "doc": "Known customer (logged in)",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "anonymous_id",
+            "doc": "Cookie / device id",
+            "type": "string"
+          },
+          {
+            "name": "session_id",
+            "doc": "Session id",
+            "type": "string"
+          },
+          {
+            "name": "event_type",
+            "doc": "page_view | search | product_view | add_to_cart | remove_from_cart | checkout_started | purchase",
+            "type": "string"
+          },
+          {
+            "name": "product_id",
+            "doc": "Product context",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "event_timestamp",
+            "doc": "Client event time (UTC)",
+            "type": {
+              "type": "long",
+              "logicalType": "timestamp-millis"
+            }
+          },
+          {
+            "name": "device_type",
+            "doc": "mobile | desktop | tablet",
+            "type": "string"
+          },
+          {
+            "name": "browser",
+            "doc": "Browser family",
+            "type": "string"
+          },
+          {
+            "name": "traffic_source",
+            "doc": "Acquisition channel",
+            "type": "string"
+          },
+          {
+            "name": "country",
+            "doc": "Geo-IP country",
+            "type": "string"
+          },
+          {
+            "name": "page_url",
+            "doc": "Relative URL",
+            "type": "string"
+          },
+          {
+            "name": "search_query",
+            "doc": "Search terms",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "cart_quantity",
+            "doc": "Quantity added/removed",
+            "type": [
+              "null",
+              "int"
+            ],
+            "default": null
+          },
+          {
+            "name": "campaign_id",
+            "doc": "Paid campaign",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "sales_channel",
+            "doc": "web | mobile_app | social_commerce",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}

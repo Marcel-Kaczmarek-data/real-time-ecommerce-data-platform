@@ -1,0 +1,90 @@
+{
+  "type": "record",
+  "name": "OrderItemsEvent",
+  "namespace": "com.ecommerce.events",
+  "doc": "Standard event envelope carrying a order_items payload. Allowed event_type values: order_item_added",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Globally unique event id (UUID)"
+    },
+    {
+      "name": "event_type",
+      "type": "string",
+      "doc": "Business event name"
+    },
+    {
+      "name": "event_version",
+      "type": "int",
+      "doc": "Payload contract version"
+    },
+    {
+      "name": "event_timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Business event time (UTC)"
+    },
+    {
+      "name": "source_system",
+      "type": "string",
+      "doc": "Emitting system"
+    },
+    {
+      "name": "correlation_id",
+      "type": "string",
+      "doc": "Journey / order correlation id"
+    },
+    {
+      "name": "payload",
+      "type": {
+        "type": "record",
+        "name": "OrderItemsPayload",
+        "fields": [
+          {
+            "name": "order_item_id",
+            "doc": "Business key",
+            "type": "string"
+          },
+          {
+            "name": "order_id",
+            "doc": "FK orders",
+            "type": "string"
+          },
+          {
+            "name": "product_id",
+            "doc": "FK products",
+            "type": "string"
+          },
+          {
+            "name": "quantity",
+            "doc": "Units",
+            "type": "int"
+          },
+          {
+            "name": "unit_price",
+            "doc": "Localised unit price",
+            "type": "double"
+          },
+          {
+            "name": "discount_amount",
+            "doc": "Line discount",
+            "type": "double"
+          },
+          {
+            "name": "currency",
+            "doc": "ISO 4217",
+            "type": "string"
+          },
+          {
+            "name": "line_number",
+            "doc": "1-based line number",
+            "type": "int"
+          }
+        ]
+      }
+    }
+  ]
+}

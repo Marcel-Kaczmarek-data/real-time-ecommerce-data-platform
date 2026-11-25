@@ -1,0 +1,86 @@
+# Local development environment (Docker Compose: Kafka, Schema Registry,
+# PostgreSQL, S3-compatible object storage, Spark). `${VAR:-default}` placeholders are resolved from
+# environment variables by pipelines/common/config.py.
+environment: local
+
+storage:
+  # s3a:// is used by Spark, s3:// by delta-rs / boto3. Both point at the local
+  # S3-compatible object store (SeaweedFS, see ADR 0011).
+  endpoint_url: ${S3_ENDPOINT_URL:-http://localhost:9000}
+  region: ${AWS_REGION:-us-east-1}
+  access_key: ${AWS_ACCESS_KEY_ID:-localdev}
+  secret_key: ${AWS_SECRET_ACCESS_KEY:-localdev-secret}
+  path_style_access: true
+  ssl_enabled: false
+  lakehouse_bucket: ${LAKEHOUSE_BUCKET:-lakehouse}
+  landing_bucket: ${LANDING_BUCKET:-landing}
+
+lakehouse:
+  # Tables are addressed by path locally; on Databricks they map to Unity Catalog names.
+  table_format: path
+  root: s3a://${LAKEHOUSE_BUCKET:-lakehouse}
+  # Streaming checkpoints live on a durable Docker volume locally: S3A's directory
+  # semantics are not fully compatible with SeaweedFS for checkpoint renames (ADR 0011).
+  checkpoint_root: ${CHECKPOINT_ROOT:-file:///opt/checkpoints}
+  layers: [bronze, silver, gold, audit, quarantine]
+
+kafka:
+  bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+  schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+  security_protocol: PLAINTEXT
+  topics_file: config/kafka-topics.yaml
+  producer:
+    acks: all
+    enable.idempotence: true
+    compression.type: zstd
+    linger.ms: 20
+    batch.size: 262144
+    retries: 2147483647
+    delivery.timeout.ms: 120000
+    max.in.flight.requests.per.connection: 5
+  consumer:
+    starting_offsets: earliest
+    max_offsets_per_trigger: 200000
+    fail_on_data_loss: false
+
+postgres:
+  host: ${POSTGRES_HOST:-localhost}
+  port: ${POSTGRES_PORT:-5433}  # host-published port; containers use 5432
+  database: ${POSTGRES_DB:-ecommerce}
+  user: ${POSTGRES_USER:-ecommerce}
+  password: ${POSTGRES_PASSWORD:-ecommerce}
+  schema: ops
+
+spark:
+  master: ${SPARK_MASTER:-local[*]}
+  app_name_prefix: ecom
+  driver_memory: ${SPARK_DRIVER_MEMORY:-2g}
+  conf:
+    spark.sql.shuffle.partitions: ${SPARK_SHUFFLE_PARTITIONS:-8}
+    spark.sql.session.timeZone: UTC
+    spark.sql.adaptive.enabled: "true"
+    spark.databricks.delta.schema.autoMerge.enabled: "false"
+    spark.sql.streaming.stateStore.providerClass: org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider
+    spark.delta.logStore.s3a.impl: io.delta.storage.S3SingleDriverLogStore
+
+streaming:
+  bronze_trigger_seconds: 10
+  silver_trigger_seconds: 30
+  late_event_threshold_minutes: 60
+  realtime_watermark_minutes: 10
+  session_gap_minutes: 30
+
+quality:
+  results_table: audit.dq_results
+  block_on_critical: true
+
+monitoring:
+  pushgateway_url: ${PUSHGATEWAY_URL:-http://localhost:9091}
+  enabled: true
+
+serving:
+  # Gold tables are served to Streamlit through DuckDB over delta-rs.
+  engine: duckdb
+  cache_ttl_seconds: 60
+
+reporting_currency: USD

@@ -1,0 +1,106 @@
+# Job definitions. Secrets are referenced from the `ecom-platform` secret scope, never inlined.
+resources:
+  jobs:
+    # ------------------------------------------------------------ streaming --
+    bronze_streaming:
+      name: "[${bundle.target}] ecom - Kafka to Bronze (continuous)"
+      continuous:
+        pause_status: PAUSED          # start explicitly after the first deploy
+      tasks:
+        - task_key: bronze_stream
+          job_cluster_key: streaming
+          spark_python_task:
+            python_file: ../jobs/bronze_streaming.py
+          libraries:
+            - pypi: {package: "fastavro==1.10.0"}
+            - pypi: {package: "confluent-kafka[avro,schemaregistry]==2.8.0"}
+            - pypi: {package: "prometheus-client==0.21.1"}
+      job_clusters:
+        - job_cluster_key: streaming
+          new_cluster:
+            spark_version: 15.4.x-scala2.12
+            node_type_id: ${var.node_type}
+            num_workers: 2
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: SINGLE_USER
+            spark_env_vars: &spark_env
+              PLATFORM_ENV: cloud
+              DATABRICKS_CATALOG: ${var.catalog}
+              LAKEHOUSE_BUCKET: ${var.lakehouse_bucket}
+              KAFKA_BOOTSTRAP_SERVERS: "{{secrets/ecom-platform/kafka-bootstrap-servers}}"
+              SCHEMA_REGISTRY_URL: "{{secrets/ecom-platform/schema-registry-url}}"
+              KAFKA_API_KEY: "{{secrets/ecom-platform/kafka-api-key}}"
+              KAFKA_API_SECRET: "{{secrets/ecom-platform/kafka-api-secret}}"
+              PII_HASH_SALT: "{{secrets/ecom-platform/pii-hash-salt}}"
+            spark_conf:
+              spark.databricks.delta.optimizeWrite.enabled: "true"
+      email_notifications:
+        on_failure: ["${var.alert_email}"]
+
+    # ------------------------------------------------------------ batch DAG --
+    medallion_batch:
+      name: "[${bundle.target}] ecom - Silver, quality gate, Gold, maintenance"
+      schedule:
+        quartz_cron_expression: "0 0/30 * * * ?"
+        timezone_id: UTC
+        pause_status: PAUSED
+      max_concurrent_runs: 1
+      tasks:
+        - task_key: silver
+          job_cluster_key: batch
+          spark_python_task:
+            python_file: ../jobs/silver_transformations.py
+        - task_key: data_quality_gate
+          depends_on: [{task_key: silver}]
+          job_cluster_key: batch
+          spark_python_task:
+            python_file: ../jobs/data_quality_validation.py
+            parameters: ["--suite", "silver", "--fail-on", "critical"]
+        - task_key: gold
+          depends_on: [{task_key: data_quality_gate}]
+          job_cluster_key: batch
+          spark_python_task:
+            python_file: ../jobs/gold_transformations.py
+        - task_key: gold_quality
+          depends_on: [{task_key: gold}]
+          job_cluster_key: batch
+          spark_python_task:
+            python_file: ../jobs/data_quality_validation.py
+            parameters: ["--suite", "gold", "--fail-on", "critical"]
+        - task_key: reconciliation
+          depends_on: [{task_key: gold}]
+          job_cluster_key: batch
+          spark_python_task:
+            python_file: ../jobs/financial_reconciliation.py
+      job_clusters:
+        - job_cluster_key: batch
+          new_cluster:
+            spark_version: 15.4.x-scala2.12
+            node_type_id: ${var.node_type}
+            autoscale: {min_workers: 1, max_workers: 4}
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: SINGLE_USER
+            spark_env_vars: *spark_env
+      email_notifications:
+        on_failure: ["${var.alert_email}"]
+
+    maintenance:
+      name: "[${bundle.target}] ecom - Delta maintenance (OPTIMIZE / VACUUM)"
+      schedule:
+        quartz_cron_expression: "0 30 2 * * ?"
+        timezone_id: UTC
+        pause_status: PAUSED
+      tasks:
+        - task_key: maintenance
+          job_cluster_key: batch
+          spark_python_task:
+            python_file: ../jobs/delta_maintenance.py
+            parameters: ["--retention", "--optimize", "--vacuum"]
+      job_clusters:
+        - job_cluster_key: batch
+          new_cluster:
+            spark_version: 15.4.x-scala2.12
+            node_type_id: ${var.node_type}
+            num_workers: 1
+            policy_id: ${var.cluster_policy_id}
+            spark_env_vars: *spark_env

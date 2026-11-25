@@ -1,0 +1,106 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "real-time-ecommerce-data-platform"
+version = "1.0.0"
+description = "Production-style real-time e-commerce data platform: Kafka, PySpark, Delta Lake, Airflow, data quality and analytics."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11,<3.12"
+authors = [{ name = "Real-Time E-Commerce Data Platform contributors" }]
+keywords = ["data-engineering", "kafka", "pyspark", "delta-lake", "airflow", "lakehouse"]
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+  "data_generator*",
+  "ingestion*",
+  "pipelines*",
+  "data_quality*",
+  "data_models*",
+  "serving*",
+  "schemas*",
+  "benchmarks*",
+]
+
+[project.scripts]
+ecom-generate = "data_generator.cli:main"
+
+# ---------------------------------------------------------------- pytest ----
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+  "spark: requires a local Spark + Delta runtime (runs in the spark container / CI)",
+  "integration: requires running docker-compose services (Kafka, Schema Registry, MinIO, PostgreSQL)",
+  "e2e: end-to-end pipeline test against running services",
+  "performance: benchmark-style tests, excluded by default",
+]
+filterwarnings = [
+  "ignore::DeprecationWarning:pyspark.*",
+  "ignore::DeprecationWarning:distutils.*",
+]
+
+[tool.coverage.run]
+source = ["data_generator", "ingestion", "pipelines", "data_quality", "serving"]
+omit = ["*/__main__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+
+# ------------------------------------------------------------------ ruff ----
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["infrastructure/databricks/notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "C4", "PL", "RUF"]
+ignore = [
+  "E501",     # line length is owned by `ruff format`
+  "PLR0913",  # many-argument functions are common in pipeline entrypoints
+  "PLR2004",  # magic values are acceptable in business rules / tests
+  "PLR0912",
+  "PLR0915",
+  "S311",     # `random` is used for synthetic data, not cryptography
+  "S608",     # SQL built from trusted, validated identifiers only
+  "RUF012",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["data_generator", "ingestion", "pipelines", "data_quality", "serving", "schemas", "benchmarks",
+                     "lib", "views", "common"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004", "S105", "S106", "S603", "S608"]
+"benchmarks/**" = ["S603", "S607"]
+"scripts/**" = ["S603", "S607"]
+"dashboards/**" = ["RUF001", "S608"]       # typographic characters in UI copy; parameterised SQL
+"orchestration/dags/**" = ["S310"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# ------------------------------------------------------------------ mypy ----
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = true
+no_implicit_optional = true
+exclude = ["^infrastructure/", "^tests/", "^orchestration/"]
+
+[[tool.mypy.overrides]]
+# PySpark's DataFrame API is effectively dynamic (Row | None, Column | str unions everywhere);
+# type our own code strictly and treat these libraries as Any.
+module = ["pyspark.*", "delta.*", "confluent_kafka.*", "fastavro.*", "deltalake.*", "duckdb.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
